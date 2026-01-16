@@ -236,6 +236,7 @@ export namespace models {
 	    isOpen: boolean;
 	    // Go type: time
 	    lastOpened: any;
+	    activeConversationId: string;
 	
 	    static createFrom(source: any = {}) {
 	        return new WorkspaceInfo(source);
@@ -247,6 +248,7 @@ export namespace models {
 	        this.name = source["name"];
 	        this.isOpen = source["isOpen"];
 	        this.lastOpened = this.convertValues(source["lastOpened"], null);
+	        this.activeConversationId = source["activeConversationId"];
 	    }
 	
 		convertValues(a: any, classs: any, asMap: boolean = false): any {

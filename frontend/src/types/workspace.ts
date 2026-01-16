@@ -16,4 +16,5 @@ export interface WorkspaceInfo {
   name: string;
   isOpen: boolean;
   lastOpened: string;
+  activeConversationId: string;
 }

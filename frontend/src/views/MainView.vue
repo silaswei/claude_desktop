@@ -8,6 +8,8 @@ import {
   ConversationCreate,
   ConversationSendWithEvents,
   ConversationGetByProjectPath,
+  WorkspaceSetActiveConversation,
+  WorkspaceGetActiveConversation,
   WorkspaceReadFile,
   WorkspaceDeleteFile,
   WorkspaceRenameFile,
@@ -22,6 +24,9 @@ const envStore = useEnvStore();
 
 // 消息列表容器引用
 const messageListRef = ref<HTMLElement | null>(null);
+
+// 输入框引用
+const messageInputRef = ref<HTMLTextAreaElement | null>(null);
 
 // UI 状态
 const showSidebar = ref(true);
@@ -48,6 +53,9 @@ let streamingMessage: {
 } | null = null;
 let streamingBuffer = '';
 let streamingTimer: number | null = null;
+
+// 思考中消息
+let thinkingMessageId: string | null = null;
 
 // 文件树展开状态
 const expandedFolders = ref<Set<string>>(new Set());
@@ -131,6 +139,7 @@ onMounted(async () => {
     EventsOn('claude:response', handleClaudeResponse);
     EventsOn('claude:thinking', handleClaudeThinking);
     EventsOn('claude:complete', handleClaudeComplete);
+    EventsOn('claude:error', handleClaudeError);
 
     // 点击页面其他地方关闭右键菜单
     window.addEventListener('click', closeContextMenu);
@@ -144,6 +153,7 @@ onUnmounted(() => {
   EventsOff('claude:response');
   EventsOff('claude:thinking');
   EventsOff('claude:complete');
+  EventsOff('claude:error');
 });
 
 // 刷新流式输出显示
@@ -152,10 +162,12 @@ function flushStreamingMessage() {
     streamingMessage.content += streamingBuffer;
     streamingBuffer = '';
 
-    // 流式输出时实时滚动到底部
-    nextTick(() => {
-      scrollToBottom();
-    });
+    // 检查是否在底部，如果是则滚动
+    if (messageListRef.value && isNearBottom()) {
+      nextTick(() => {
+        scrollToBottom();
+      });
+    }
   }
   if (streamingTimer !== null) {
     clearTimeout(streamingTimer);
@@ -174,6 +186,25 @@ function handleClaudeResponse(data: any) {
   }
 
   if (!content) return;
+
+  // 只有内容不为空（去除空白后）才处理
+  const trimmedContent = content.trim();
+  if (!trimmedContent) {
+    console.log('收到空白内容，忽略:', JSON.stringify(data));
+    return;
+  }
+
+  console.log('收到有效内容:', trimmedContent.substring(0, 50));
+
+  // 移除思考中消息（只在有实际内容时）
+  if (thinkingMessageId) {
+    console.log('移除思考中消息');
+    const thinkingIndex = messages.value.findIndex(m => m.id === thinkingMessageId);
+    if (thinkingIndex !== -1) {
+      messages.value.splice(thinkingIndex, 1);
+    }
+    thinkingMessageId = null;
+  }
 
   // 查找或创建流式消息对象
   if (!streamingMessage) {
@@ -205,24 +236,101 @@ function handleClaudeResponse(data: any) {
 // 处理 Claude 开始思考事件
 function handleClaudeThinking() {
   isThinking.value = true;
+
+  // 创建思考中消息
+  thinkingMessageId = `msg-thinking-${Date.now()}`;
+  messages.value.push({
+    id: thinkingMessageId,
+    role: 'assistant' as const,
+    content: '思考中',
+    timestamp: new Date().toISOString()
+  });
 }
 
 // 处理 Claude 完成事件
-function handleClaudeComplete() {
-  isThinking.value = false;
+function handleClaudeComplete(data: any) {
+  console.log('收到完成事件:', data);
+
   // 刷新缓冲区
   flushStreamingMessage();
 
-  // 确保回复完成后滚动到底部
-  nextTick(() => {
-    scrollToBottom();
+  // 检查是否有实际内容
+  const hasContent = data?.hasContent ?? true; // 默认为 true 以兼容旧版本
+
+  // 只有在已经收到内容的情况下才设置 isThinking = false
+  // 如果思考中消息还在，说明没有收到内容，保持思考状态
+  if (thinkingMessageId && !hasContent) {
+    // 没有收到任何响应，移除思考中消息并显示错误
+    console.log('没有收到任何响应内容');
+
+    const thinkingIndex = messages.value.findIndex(m => m.id === thinkingMessageId);
+    if (thinkingIndex !== -1) {
+      messages.value.splice(thinkingIndex, 1);
+    }
+    thinkingMessageId = null;
+
+    // 添加错误提示
+    messages.value.push({
+      id: `msg-error-${Date.now()}`,
+      role: 'assistant' as const,
+      content: '抱歉，没有收到任何响应。请检查 Claude CLI 是否正确配置。',
+      timestamp: new Date().toISOString()
+    });
+
+    // 设置 isThinking = false，允许重新发送
+    isThinking.value = false;
+  } else if (!thinkingMessageId) {
+    // 思考中消息已经被移除（说明收到了内容），正常结束
+    isThinking.value = false;
+  }
+  // 如果 thinkingMessageId 还在，保持 isThinking = true，继续等待内容
+}
+
+// 处理 Claude 错误事件
+function handleClaudeError(data: any) {
+  console.error('收到错误事件:', data);
+
+  const errorMsg = data?.error || '未知错误';
+
+  // 移除思考中消息
+  if (thinkingMessageId) {
+    const thinkingIndex = messages.value.findIndex(m => m.id === thinkingMessageId);
+    if (thinkingIndex !== -1) {
+      messages.value.splice(thinkingIndex, 1);
+    }
+    thinkingMessageId = null;
+  }
+
+  // 添加错误消息
+  messages.value.push({
+    id: `msg-error-${Date.now()}`,
+    role: 'assistant' as const,
+    content: `发生错误: ${errorMsg}`,
+    timestamp: new Date().toISOString()
   });
+
+  isThinking.value = false;
 }
 
 // 加载工作区的历史对话
 async function loadWorkspaceConversation(projectPath: string) {
   try {
-    const conv = await ConversationGetByProjectPath(projectPath);
+    // 首先尝试获取存储的活跃会话ID
+    const storedConvID = await WorkspaceGetActiveConversation();
+    console.log('存储的会话ID:', storedConvID);
+
+    let conv = null;
+    if (storedConvID) {
+      // 如果有存储的会话ID，直接使用该会话
+      // 这里我们需要添加一个新的API来通过ID获取会话
+      // 暂时先使用 GetByProjectPath 作为备选方案
+    }
+
+    // 如果没有存储的会话ID或加载失败，通过项目路径查找最新会话
+    if (!conv) {
+      conv = await ConversationGetByProjectPath(projectPath);
+    }
+
     if (conv && conv.messages && conv.messages.length > 0) {
       // 转换消息格式
       messages.value = conv.messages.map((msg: any) => ({
@@ -232,7 +340,10 @@ async function loadWorkspaceConversation(projectPath: string) {
         timestamp: msg.timestamp || new Date().toISOString()
       }));
       conversationId.value = conv.id;
-      console.log('加载历史对话成功，消息数:', messages.value.length);
+      console.log('加载历史对话成功，消息数:', messages.value.length, '会话ID:', conv.id);
+
+      // 确保活跃会话ID已设置
+      await WorkspaceSetActiveConversation(conv.id);
 
       // 加载历史对话后滚动到底部
       await nextTick();
@@ -257,12 +368,23 @@ function scrollToBottom() {
   }
 }
 
+// 检查是否在底部（100px以内）
+function isNearBottom(): boolean {
+  if (!messageListRef.value) return false;
+  const el = messageListRef.value;
+  const threshold = 100;
+  return el.scrollHeight - el.scrollTop - el.clientHeight < threshold;
+}
+
 // 监听消息变化，自动滚动到底部
 watch(
   () => messages.value,
   async () => {
-    await nextTick();
-    scrollToBottom();
+    // 检查是否在底部，如果是则滚动
+    if (isNearBottom()) {
+      await nextTick();
+      scrollToBottom();
+    }
   },
   { deep: true }
 );
@@ -359,14 +481,13 @@ async function handleSendMessage() {
     };
     messages.value.push(userMessage);
 
-    // 立即滚动到底部显示用户消息
-    await nextTick();
-    scrollToBottom();
-
     // 创建会话（如果还没有）
     if (!conversationId.value) {
       const conv = await ConversationCreate(selectedWorkspace.value.name, selectedWorkspace.value.path);
       conversationId.value = conv.id;
+      // 保存活跃会话ID到工作区
+      await WorkspaceSetActiveConversation(conv.id);
+      console.log('创建新会话并保存ID:', conv.id);
     }
 
     // 发送到后端（使用事件流式接收响应）
@@ -523,7 +644,7 @@ function closeContextMenu() {
 }
 
 // 发送文件路径到输入框
-function sendFilePathToInput(file: FileInfo) {
+async function sendFilePathToInput(file: FileInfo) {
   if (!selectedWorkspace.value) {
     alert('请先选择工作区');
     return;
@@ -531,12 +652,21 @@ function sendFilePathToInput(file: FileInfo) {
 
   // 计算相对路径
   const relativePath = file.path.replace(selectedWorkspace.value.path + '/', '');
-  const pathMessage = `@${relativePath}`;
+  const pathMessage = `@${relativePath} `;  // 路径后加空格
 
   // 添加到输入框
   messageInput.value += (messageInput.value ? '\n' : '') + pathMessage;
 
+  // 关闭右键菜单
   closeContextMenu();
+
+  // 激活输入框并聚焦
+  await nextTick();
+  if (messageInputRef.value) {
+    messageInputRef.value.focus();
+    // 将光标移动到文本末尾
+    messageInputRef.value.setSelectionRange(messageInput.value.length, messageInput.value.length);
+  }
 }
 
 // 打开文件/文件夹
@@ -832,6 +962,7 @@ function getFileIcon(file: FileInfo): string {
               class="file-item"
               :class="`file-type-${file.type}`"
               @click="handleFileClick(file)"
+              @dblclick="sendFilePathToInput(file)"
               @contextmenu="handleContextMenu($event, file)"
             >
               <div class="file-item-row">
@@ -906,7 +1037,7 @@ function getFileIcon(file: FileInfo): string {
           <div
             v-for="msg in messages"
             :key="msg.id"
-            v-show="msg.content.trim() !== '' || msg.role === 'user'"
+            v-show="msg.content.trim() !== '' || msg.role === 'user' || msg.id.includes('thinking')"
             class="message-item"
             :class="msg.role"
           >
@@ -916,7 +1047,17 @@ function getFileIcon(file: FileInfo): string {
               </span>
               <span class="message-time">{{ formatTime(msg.timestamp) }}</span>
             </div>
-            <div class="message-content">{{ msg.content }}</div>
+            <!-- 思考中消息显示动画 -->
+            <div v-if="msg.id.includes('thinking')" class="message-content thinking-content">
+              <span class="thinking-text">思考中</span>
+              <span class="thinking-dots">
+                <span class="dot"></span>
+                <span class="dot"></span>
+                <span class="dot"></span>
+              </span>
+            </div>
+            <!-- 普通消息内容 -->
+            <div v-else class="message-content">{{ msg.content }}</div>
           </div>
         </div>
 
@@ -944,6 +1085,7 @@ function getFileIcon(file: FileInfo): string {
         <!-- 输入区域 -->
         <div v-if="selectedWorkspace" class="input-panel">
           <textarea
+            ref="messageInputRef"
             v-model="messageInput"
             class="message-input"
             placeholder="输入消息... (Shift+Enter 换行, Enter 发送)"
@@ -1535,6 +1677,43 @@ function getFileIcon(file: FileInfo): string {
         color: #333;
         white-space: pre-wrap;
         word-wrap: break-word;
+
+        &.thinking-content {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+
+          .thinking-text {
+            font-size: 14px;
+            color: #666;
+          }
+
+          .thinking-dots {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+
+            .dot {
+              width: 6px;
+              height: 6px;
+              border-radius: 50%;
+              background: #667eea;
+              animation: thinking-bounce 1.4s ease-in-out infinite;
+
+              &:nth-child(1) {
+                animation-delay: 0s;
+              }
+
+              &:nth-child(2) {
+                animation-delay: 0.2s;
+              }
+
+              &:nth-child(3) {
+                animation-delay: 0.4s;
+              }
+            }
+          }
+        }
       }
     }
   }
@@ -1692,6 +1871,20 @@ function getFileIcon(file: FileInfo): string {
     height: 40px;
     background: rgba(0, 0, 0, 0.2);
     border-radius: 1px;
+  }
+}
+</style>
+
+<!-- 思考动画关键帧 -->
+<style>
+@keyframes thinking-bounce {
+  0%, 60%, 100% {
+    transform: translateY(0);
+    opacity: 0.3;
+  }
+  30% {
+    transform: translateY(-8px);
+    opacity: 1;
   }
 }
 </style>

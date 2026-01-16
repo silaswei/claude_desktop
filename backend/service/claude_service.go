@@ -205,7 +205,7 @@ func (s *ClaudeService) StreamMessage(ctx context.Context, content string, onChu
 			// 处理不同类型的事件
 			switch eventType := raw["type"].(string); eventType {
 			case "stream_event":
-				// 处理流式事件
+				// 处理流式事件，只发送文本内容
 				if event, ok := raw["event"].(map[string]interface{}); ok {
 					switch eventStr := event["type"].(string); eventStr {
 					case "content_block_delta":
@@ -215,28 +215,10 @@ func (s *ClaudeService) StreamMessage(ctx context.Context, content string, onChu
 								onChunk(text)
 							}
 						}
-					case "tool_use_delta":
-						// 工具调用增量（显示工具调用过程）
-						if delta, ok := event["delta"].(map[string]interface{}); ok {
-							if name, ok := delta["name"].(string); ok && name != "" && onChunk != nil {
-								onChunk(fmt.Sprintf("\n🔧 使用工具: %s\n", name))
-							}
-							if input, ok := delta["input"].(string); ok && input != "" && onChunk != nil {
-								onChunk(fmt.Sprintf("   参数: %s\n", input))
-							}
-						}
 					}
 				}
-			case "tool_use":
-				// 显示工具调用信息
-				if name, ok := raw["name"].(string); ok && onChunk != nil {
-					onChunk(fmt.Sprintf("\n🔧 调用工具: %s\n", name))
-				}
-			case "tool_result":
-				// 显示工具结果
-				if onChunk != nil {
-					onChunk("\n✓ 工具执行完成\n")
-				}
+			default:
+				// 其他类型的事件忽略
 			}
 		}
 	}()

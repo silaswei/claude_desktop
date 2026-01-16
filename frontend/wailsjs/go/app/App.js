@@ -94,6 +94,10 @@ export function WorkspaceDeleteFile(arg1) {
   return window['go']['app']['App']['WorkspaceDeleteFile'](arg1);
 }
 
+export function WorkspaceGetActiveConversation() {
+  return window['go']['app']['App']['WorkspaceGetActiveConversation']();
+}
+
 export function WorkspaceGetCurrent() {
   return window['go']['app']['App']['WorkspaceGetCurrent']();
 }
@@ -140,6 +144,10 @@ export function WorkspaceRenameFile(arg1, arg2) {
 
 export function WorkspaceSelect(arg1) {
   return window['go']['app']['App']['WorkspaceSelect'](arg1);
+}
+
+export function WorkspaceSetActiveConversation(arg1) {
+  return window['go']['app']['App']['WorkspaceSetActiveConversation'](arg1);
 }
 
 export function WorkspaceWriteFile(arg1, arg2) {

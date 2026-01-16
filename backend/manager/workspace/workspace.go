@@ -2,6 +2,7 @@ package workspace
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"os"
@@ -16,9 +17,10 @@ import (
 
 // Workspace 工作区
 type Workspace struct {
-	Path       string
-	Name       string
-	LastOpened time.Time
+	Path                 string
+	Name                 string
+	LastOpened           time.Time
+	ActiveConversationID string
 }
 
 // Manager 工作区管理器
@@ -26,28 +28,120 @@ type Manager struct {
 	mu          sync.RWMutex
 	workspaces  []*Workspace // 所有工作区列表
 	currentPath string       // 当前选中的工作区路径
+	storageFile string       // 持久化文件路径
 }
 
 // NewManager 创建工作区管理器
 func NewManager() *Manager {
-	return &Manager{
-		workspaces: make([]*Workspace, 0),
+	// 获取用户主目录
+	homeDir, _ := os.UserHomeDir()
+	storageDir := filepath.Join(homeDir, ".claude-terminal")
+
+	// 确保目录存在
+	os.MkdirAll(storageDir, 0755)
+
+	storageFile := filepath.Join(storageDir, "workspaces.json")
+
+	m := &Manager{
+		workspaces:  make([]*Workspace, 0),
+		storageFile: storageFile,
+	}
+
+	// 加载持久化的工作区数据
+	m.loadFromStorage()
+
+	return m
+}
+
+// loadFromStorage 从文件加载工作区数据
+func (m *Manager) loadFromStorage() {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	data, err := os.ReadFile(m.storageFile)
+	if err != nil {
+		// 文件不存在，使用空列表
+		return
+	}
+
+	var storageList []struct {
+		Path                 string    `json:"path"`
+		Name                 string    `json:"name"`
+		LastOpened           time.Time `json:"lastOpened"`
+		ActiveConversationID string    `json:"activeConversationId"`
+	}
+
+	if err := json.Unmarshal(data, &storageList); err != nil {
+		fmt.Printf("加载工作区数据失败: %v\n", err)
+		return
+	}
+
+	// 转换为 Workspace 对象
+	m.workspaces = make([]*Workspace, 0, len(storageList))
+	for _, item := range storageList {
+		// 检查路径是否仍然存在
+		if _, err := os.Stat(item.Path); err == nil {
+			m.workspaces = append(m.workspaces, &Workspace{
+				Path:                 item.Path,
+				Name:                 item.Name,
+				LastOpened:           item.LastOpened,
+				ActiveConversationID: item.ActiveConversationID,
+			})
+		}
+	}
+}
+
+// saveToStorage 保存工作区数据到文件
+func (m *Manager) saveToStorage() {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	storageList := make([]struct {
+		Path                 string    `json:"path"`
+		Name                 string    `json:"name"`
+		LastOpened           time.Time `json:"lastOpened"`
+		ActiveConversationID string    `json:"activeConversationId"`
+	}, len(m.workspaces))
+
+	for i, ws := range m.workspaces {
+		storageList[i] = struct {
+			Path                 string    `json:"path"`
+			Name                 string    `json:"name"`
+			LastOpened           time.Time `json:"lastOpened"`
+			ActiveConversationID string    `json:"activeConversationId"`
+		}{
+			Path:                 ws.Path,
+			Name:                 ws.Name,
+			LastOpened:           ws.LastOpened,
+			ActiveConversationID: ws.ActiveConversationID,
+		}
+	}
+
+	data, err := json.MarshalIndent(storageList, "", "  ")
+	if err != nil {
+		fmt.Printf("序列化工作区数据失败: %v\n", err)
+		return
+	}
+
+	if err := os.WriteFile(m.storageFile, data, 0644); err != nil {
+		fmt.Printf("保存工作区数据失败: %v\n", err)
 	}
 }
 
 // Open 打开工作区（如果不存在则创建新的）
 func (m *Manager) Open(path string) (*Workspace, error) {
 	m.mu.Lock()
-	defer m.mu.Unlock()
 
 	// 检查路径是否存在
 	if _, err := os.Stat(path); os.IsNotExist(err) {
+		m.mu.Unlock()
 		return nil, err
 	}
 
 	// 转换为绝对路径
 	absPath, err := filepath.Abs(path)
 	if err != nil {
+		m.mu.Unlock()
 		return nil, err
 	}
 
@@ -56,6 +150,9 @@ func (m *Manager) Open(path string) (*Workspace, error) {
 		if ws.Path == absPath {
 			ws.LastOpened = time.Now()
 			m.currentPath = absPath
+			m.mu.Unlock()
+			// 异步保存，避免阻塞
+			go m.saveToStorage()
 			return ws, nil
 		}
 	}
@@ -70,6 +167,10 @@ func (m *Manager) Open(path string) (*Workspace, error) {
 
 	m.workspaces = append(m.workspaces, workspace)
 	m.currentPath = absPath
+	m.mu.Unlock()
+
+	// 异步保存，避免阻塞
+	go m.saveToStorage()
 
 	return workspace, nil
 }
@@ -114,7 +215,6 @@ func (m *Manager) SelectWorkspace(path string) error {
 // RemoveWorkspace 移除工作区
 func (m *Manager) RemoveWorkspace(path string) {
 	m.mu.Lock()
-	defer m.mu.Unlock()
 
 	for i, ws := range m.workspaces {
 		if ws.Path == path {
@@ -125,9 +225,15 @@ func (m *Manager) RemoveWorkspace(path string) {
 			if m.currentPath == path {
 				m.currentPath = ""
 			}
+			m.mu.Unlock()
+
+			// 异步保存，避免阻塞
+			go m.saveToStorage()
 			return
 		}
 	}
+
+	m.mu.Unlock()
 }
 
 // GetWorkspaces 获取所有工作区列表（按最后打开时间排序）
@@ -573,9 +679,52 @@ func (m *Manager) GetWorkspaceInfo() *models.WorkspaceInfo {
 	}
 
 	return &models.WorkspaceInfo{
-		Path:       ws.Path,
-		Name:       ws.Name,
-		IsOpen:     true,
-		LastOpened: ws.LastOpened,
+		Path:                 ws.Path,
+		Name:                 ws.Name,
+		IsOpen:               true,
+		LastOpened:           ws.LastOpened,
+		ActiveConversationID: ws.ActiveConversationID,
 	}
+}
+
+// SetActiveConversationID 设置当前工作区的活跃会话ID
+func (m *Manager) SetActiveConversationID(convID string) error {
+	m.mu.Lock()
+
+	if m.currentPath == "" {
+		m.mu.Unlock()
+		return fmt.Errorf("没有打开的工作区")
+	}
+
+	for _, ws := range m.workspaces {
+		if ws.Path == m.currentPath {
+			ws.ActiveConversationID = convID
+			m.mu.Unlock()
+
+			// 异步保存，避免阻塞
+			go m.saveToStorage()
+			return nil
+		}
+	}
+
+	m.mu.Unlock()
+	return fmt.Errorf("当前工作区不在列表中")
+}
+
+// GetActiveConversationID 获取当前工作区的活跃会话ID
+func (m *Manager) GetActiveConversationID() string {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	if m.currentPath == "" {
+		return ""
+	}
+
+	for _, ws := range m.workspaces {
+		if ws.Path == m.currentPath {
+			return ws.ActiveConversationID
+		}
+	}
+
+	return ""
 }

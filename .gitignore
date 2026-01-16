@@ -8,8 +8,7 @@
 *.out
 
 # Wails build output
-build/
-bin/
+build/bin/
 .tmp/
 
 # Go workspace file

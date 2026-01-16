@@ -14,8 +14,9 @@ type FileInfo struct {
 
 // WorkspaceInfo 工作区信息
 type WorkspaceInfo struct {
-	Path       string    `json:"path"`       // 工作区路径
-	Name       string    `json:"name"`       // 文件夹名称
-	IsOpen     bool      `json:"isOpen"`     // 是否已打开
-	LastOpened time.Time `json:"lastOpened"` // 最后打开时间
+	Path                  string    `json:"path"`                  // 工作区路径
+	Name                  string    `json:"name"`                  // 文件夹名称
+	IsOpen                bool      `json:"isOpen"`                // 是否已打开
+	LastOpened            time.Time `json:"lastOpened"`            // 最后打开时间
+	ActiveConversationID  string    `json:"activeConversationId"`  // 当前活跃的会话ID
 }

@@ -49,6 +49,8 @@ export function WorkspaceCreateFile(arg1:string,arg2:string):Promise<void>;
 
 export function WorkspaceDeleteFile(arg1:string):Promise<void>;
 
+export function WorkspaceGetActiveConversation():Promise<string>;
+
 export function WorkspaceGetCurrent():Promise<string>;
 
 export function WorkspaceGetFullPath(arg1:string):Promise<string>;
@@ -72,5 +74,7 @@ export function WorkspaceRemove(arg1:string):Promise<void>;
 export function WorkspaceRenameFile(arg1:string,arg2:string):Promise<void>;
 
 export function WorkspaceSelect(arg1:string):Promise<void>;
+
+export function WorkspaceSetActiveConversation(arg1:string):Promise<void>;
 
 export function WorkspaceWriteFile(arg1:string,arg2:string):Promise<void>;

@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 
 	"claude_desktop/backend/detector"
 	"claude_desktop/backend/manager/conversation"
@@ -226,10 +227,11 @@ func (a *App) WorkspaceList() []*models.WorkspaceInfo {
 	result := make([]*models.WorkspaceInfo, len(workspaces))
 	for i, ws := range workspaces {
 		result[i] = &models.WorkspaceInfo{
-			Path:       ws.Path,
-			Name:       ws.Name,
-			IsOpen:     ws.Path == a.workspaceManager.GetCurrent(),
-			LastOpened: ws.LastOpened,
+			Path:                 ws.Path,
+			Name:                 ws.Name,
+			IsOpen:               ws.Path == a.workspaceManager.GetCurrent(),
+			LastOpened:           ws.LastOpened,
+			ActiveConversationID: ws.ActiveConversationID,
 		}
 	}
 	return result
@@ -268,6 +270,16 @@ func (a *App) WorkspaceCreateDirectory(relativePath string) error {
 // WorkspaceGetFullPath 获取文件完整路径
 func (a *App) WorkspaceGetFullPath(relativePath string) (string, error) {
 	return a.workspaceManager.GetFullPath(relativePath)
+}
+
+// WorkspaceSetActiveConversation 设置当前工作区的活跃会话ID
+func (a *App) WorkspaceSetActiveConversation(convID string) error {
+	return a.workspaceManager.SetActiveConversationID(convID)
+}
+
+// WorkspaceGetActiveConversation 获取当前工作区的活跃会话ID
+func (a *App) WorkspaceGetActiveConversation() string {
+	return a.workspaceManager.GetActiveConversationID()
 }
 
 // ==================== 系统操作相关 API ====================
@@ -377,8 +389,17 @@ func (a *App) ConversationSendWithEvents(convID, content string) error {
 		"convID": convID,
 	})
 
+	// 用于跟踪是否有实际内容
+	hasContent := false
+
 	// 使用 SendMessageWithCallback 并在回调中发送事件
 	_, err := a.convManager.SendMessageWithCallback(convID, content, func(chunk string) {
+		// 检查是否有实际内容
+		trimmedChunk := strings.TrimSpace(chunk)
+		if trimmedChunk != "" {
+			hasContent = true
+		}
+
 		// 通过 Wails Events 发送响应片段到前端
 		runtime.EventsEmit(a.ctx, "claude:response", map[string]interface{}{
 			"content": chunk,
@@ -386,16 +407,22 @@ func (a *App) ConversationSendWithEvents(convID, content string) error {
 		})
 	})
 
-	// 发送完成事件
-	runtime.EventsEmit(a.ctx, "claude:complete", map[string]interface{}{
-		"convID": convID,
-	})
-
 	if err != nil {
+		// 发送错误事件
+		runtime.EventsEmit(a.ctx, "claude:error", map[string]interface{}{
+			"convID": convID,
+			"error":  err.Error(),
+		})
 		fmt.Printf("发送消息失败: %v\n", err)
-	} else {
-		fmt.Printf("发送消息成功\n")
+		return err
 	}
 
-	return err
+	// 只有在有内容或成功完成时才发送完成事件
+	runtime.EventsEmit(a.ctx, "claude:complete", map[string]interface{}{
+		"convID":     convID,
+		"hasContent": hasContent,
+	})
+
+	fmt.Printf("发送消息成功, hasContent=%v\n", hasContent)
+	return nil
 }
