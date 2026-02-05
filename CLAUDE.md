@@ -139,7 +139,7 @@ go mod tidy
 - `Message`: 消息实体（ID、角色、内容、时间戳）
 
 **存储**:
-- 使用 JSON 文件存储在 `~/.claude-terminal/conversations/`
+- 使用 JSON 文件存储在 `~/.claude-desktop/conversations/`
 - 每个对话一个独立的 JSON 文件
 
 **流式响应**:
@@ -249,7 +249,7 @@ EventsOn("claude:response", (data) => {
 
 4. **窗口大小**: 应用启动时会自动调整为屏幕尺寸的 3/4（在 `app.go:resizeWindowToThreeQuarters()`）
 
-5. **数据目录**: 对话数据存储在 `~/.claude-terminal/` 目录
+5. **数据目录**: 对话数据存储在 `~/.claude-desktop/` 目录
 
 6. **前端构建**: 修改前端代码后需要运行 `wails build` 或在 `wails dev` 模式下会自动热重载
 

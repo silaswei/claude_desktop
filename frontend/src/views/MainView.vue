@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import { ref, onMounted, computed, onUnmounted, watch, nextTick } from 'vue';
-import { useWorkspaceStore } from '../stores/workspace';
-import { useEnvStore } from '../stores/env';
-import type { FileInfo, WorkspaceInfo } from '../types/workspace';
+import { ref, onMounted, computed, onUnmounted, watch, nextTick } from "vue";
+import { useWorkspaceStore } from "@/stores/workspace";
+import { useEnvStore } from "@/stores/env";
+import type { FileInfo, WorkspaceInfo } from "@/types/workspace";
 import {
   DialogOpenDirectory,
   ConversationCreate,
@@ -10,14 +10,13 @@ import {
   ConversationGetByProjectPath,
   WorkspaceSetActiveConversation,
   WorkspaceGetActiveConversation,
-  WorkspaceReadFile,
   WorkspaceDeleteFile,
   WorkspaceRenameFile,
   SystemOpenFile,
   SystemOpenTerminal,
-  SystemRevealInFinder
-} from '../../wailsjs/go/app/App';
-import { EventsOn, EventsOff } from '../../wailsjs/runtime/runtime';
+  SystemRevealInFinder,
+} from "../../wailsjs/go/app/App";
+import { EventsOn, EventsOff } from "../../wailsjs/runtime/runtime";
 
 const workspaceStore = useWorkspaceStore();
 const envStore = useEnvStore();
@@ -33,25 +32,27 @@ const showSidebar = ref(true);
 const sidebarWidth = ref(280); // 侧边栏宽度
 const isResizing = ref(false); // 是否正在调整宽度
 const selectedWorkspace = ref<WorkspaceInfo | null>(null);
-const messageInput = ref('');
+const messageInput = ref("");
 const isSending = ref(false);
 const isThinking = ref(false); // 思考状态
-const conversationId = ref('');
-const messages = ref<Array<{
-  id: string;
-  role: 'user' | 'assistant';
-  content: string;
-  timestamp: string;
-}>>([]);
+const conversationId = ref("");
+const messages = ref<
+  Array<{
+    id: string;
+    role: "user" | "assistant";
+    content: string;
+    timestamp: string;
+  }>
+>([]);
 
 // 流式输出优化：批量更新
 let streamingMessage: {
   id: string;
-  role: 'user' | 'assistant';
+  role: "user" | "assistant";
   content: string;
   timestamp: string;
 } | null = null;
-let streamingBuffer = '';
+let streamingBuffer = "";
 let streamingTimer: number | null = null;
 
 // 思考中消息
@@ -66,7 +67,7 @@ const contextMenu = ref({
   visible: false,
   x: 0,
   y: 0,
-  file: null as FileInfo | null
+  file: null as FileInfo | null,
 });
 
 // 计算属性：过滤后的文件列表
@@ -75,19 +76,22 @@ const filteredFiles = computed(() => {
 
   if (!currentFolderFilter.value || !selectedWorkspace.value) {
     // 显示根目录下的文件
-    return allFiles.filter(file => {
+    return allFiles.filter((file) => {
       // 只显示第一层文件（不包含 / 的）
-      return !file.path.includes('/');
+      return !file.path.includes("/");
     });
   }
 
   // 计算当前过滤器的相对路径
-  const filterRelative = currentFolderFilter.value.replace(selectedWorkspace.value.path + '/', '');
+  const filterRelative = currentFolderFilter.value.replace(
+    selectedWorkspace.value.path + "/",
+    ""
+  );
 
   // 显示特定文件夹下的直接子文件和子文件夹
-  return allFiles.filter(file => {
+  return allFiles.filter((file) => {
     // 文件必须以当前过滤路径开头
-    if (!file.path.startsWith(filterRelative + '/')) {
+    if (!file.path.startsWith(filterRelative + "/")) {
       return false;
     }
 
@@ -95,7 +99,7 @@ const filteredFiles = computed(() => {
     const remainingPath = file.path.substring(filterRelative.length + 1);
 
     // 只显示直接子项（剩余部分不包含 /）
-    return !remainingPath.includes('/');
+    return !remainingPath.includes("/");
   });
 });
 
@@ -105,16 +109,19 @@ const breadcrumbPath = computed(() => {
     return [];
   }
 
-  const relativePath = currentFolderFilter.value.replace(selectedWorkspace.value.path + '/', '');
-  const parts = relativePath.split('/');
+  const relativePath = currentFolderFilter.value.replace(
+    selectedWorkspace.value.path + "/",
+    ""
+  );
+  const parts = relativePath.split("/");
   const breadcrumbs = [];
   let currentPath = selectedWorkspace.value.path;
 
   for (const part of parts) {
-    currentPath += '/' + part;
+    currentPath += "/" + part;
     breadcrumbs.push({
       name: part,
-      path: currentPath
+      path: currentPath,
     });
   }
 
@@ -129,38 +136,40 @@ onMounted(async () => {
 
     // 如果有当前工作区，选中它
     if (workspaceStore.currentPath) {
-      const current = workspaceStore.workspaces.find(ws => ws.path === workspaceStore.currentPath);
+      const current = workspaceStore.workspaces.find(
+        (ws) => ws.path === workspaceStore.currentPath
+      );
       if (current) {
         selectedWorkspace.value = current;
       }
     }
 
     // 监听 Claude 响应事件
-    EventsOn('claude:response', handleClaudeResponse);
-    EventsOn('claude:thinking', handleClaudeThinking);
-    EventsOn('claude:complete', handleClaudeComplete);
-    EventsOn('claude:error', handleClaudeError);
+    EventsOn("claude:response", handleClaudeResponse);
+    EventsOn("claude:thinking", handleClaudeThinking);
+    EventsOn("claude:complete", handleClaudeComplete);
+    EventsOn("claude:error", handleClaudeError);
 
     // 点击页面其他地方关闭右键菜单
-    window.addEventListener('click', closeContextMenu);
+    window.addEventListener("click", closeContextMenu);
   } catch (error) {
-    console.error('加载数据失败:', error);
+    console.error("加载数据失败:", error);
   }
 });
 
 // 组件卸载时清理事件监听
 onUnmounted(() => {
-  EventsOff('claude:response');
-  EventsOff('claude:thinking');
-  EventsOff('claude:complete');
-  EventsOff('claude:error');
+  EventsOff("claude:response");
+  EventsOff("claude:thinking");
+  EventsOff("claude:complete");
+  EventsOff("claude:error");
 });
 
 // 刷新流式输出显示
 function flushStreamingMessage() {
   if (streamingMessage && streamingBuffer) {
     streamingMessage.content += streamingBuffer;
-    streamingBuffer = '';
+    streamingBuffer = "";
 
     // 检查是否在底部，如果是则滚动
     if (messageListRef.value && isNearBottom()) {
@@ -178,8 +187,8 @@ function flushStreamingMessage() {
 // 处理 Claude 响应（真正的流式输出）
 function handleClaudeResponse(data: any) {
   // 快速提取内容
-  let content = '';
-  if (typeof data === 'string') {
+  let content = "";
+  if (typeof data === "string") {
     content = data;
   } else if (data?.content) {
     content = data.content;
@@ -190,16 +199,18 @@ function handleClaudeResponse(data: any) {
   // 只有内容不为空（去除空白后）才处理
   const trimmedContent = content.trim();
   if (!trimmedContent) {
-    console.log('收到空白内容，忽略:', JSON.stringify(data));
+    console.log("收到空白内容，忽略:", JSON.stringify(data));
     return;
   }
 
-  console.log('收到有效内容:', trimmedContent.substring(0, 50));
+  console.log("收到有效内容:", trimmedContent.substring(0, 50));
 
   // 移除思考中消息（只在有实际内容时）
   if (thinkingMessageId) {
-    console.log('移除思考中消息');
-    const thinkingIndex = messages.value.findIndex(m => m.id === thinkingMessageId);
+    console.log("移除思考中消息");
+    const thinkingIndex = messages.value.findIndex(
+      (m) => m.id === thinkingMessageId
+    );
     if (thinkingIndex !== -1) {
       messages.value.splice(thinkingIndex, 1);
     }
@@ -209,14 +220,14 @@ function handleClaudeResponse(data: any) {
   // 查找或创建流式消息对象
   if (!streamingMessage) {
     const lastMessage = messages.value[messages.value.length - 1];
-    if (lastMessage?.role === 'assistant') {
+    if (lastMessage?.role === "assistant") {
       streamingMessage = lastMessage;
     } else {
       streamingMessage = {
         id: `msg-${Date.now()}`,
-        role: 'assistant' as const,
-        content: '',
-        timestamp: new Date().toISOString()
+        role: "assistant" as const,
+        content: "",
+        timestamp: new Date().toISOString(),
       };
       messages.value.push(streamingMessage);
     }
@@ -241,15 +252,15 @@ function handleClaudeThinking() {
   thinkingMessageId = `msg-thinking-${Date.now()}`;
   messages.value.push({
     id: thinkingMessageId,
-    role: 'assistant' as const,
-    content: '思考中',
-    timestamp: new Date().toISOString()
+    role: "assistant" as const,
+    content: "思考中",
+    timestamp: new Date().toISOString(),
   });
 }
 
 // 处理 Claude 完成事件
 function handleClaudeComplete(data: any) {
-  console.log('收到完成事件:', data);
+  console.log("收到完成事件:", data);
 
   // 刷新缓冲区
   flushStreamingMessage();
@@ -261,9 +272,11 @@ function handleClaudeComplete(data: any) {
   // 如果思考中消息还在，说明没有收到内容，保持思考状态
   if (thinkingMessageId && !hasContent) {
     // 没有收到任何响应，移除思考中消息并显示错误
-    console.log('没有收到任何响应内容');
+    console.log("没有收到任何响应内容");
 
-    const thinkingIndex = messages.value.findIndex(m => m.id === thinkingMessageId);
+    const thinkingIndex = messages.value.findIndex(
+      (m) => m.id === thinkingMessageId
+    );
     if (thinkingIndex !== -1) {
       messages.value.splice(thinkingIndex, 1);
     }
@@ -272,9 +285,9 @@ function handleClaudeComplete(data: any) {
     // 添加错误提示
     messages.value.push({
       id: `msg-error-${Date.now()}`,
-      role: 'assistant' as const,
-      content: '抱歉，没有收到任何响应。请检查 Claude CLI 是否正确配置。',
-      timestamp: new Date().toISOString()
+      role: "assistant" as const,
+      content: "抱歉，没有收到任何响应。请检查 Claude CLI 是否正确配置。",
+      timestamp: new Date().toISOString(),
     });
 
     // 设置 isThinking = false，允许重新发送
@@ -288,13 +301,15 @@ function handleClaudeComplete(data: any) {
 
 // 处理 Claude 错误事件
 function handleClaudeError(data: any) {
-  console.error('收到错误事件:', data);
+  console.error("收到错误事件:", data);
 
-  const errorMsg = data?.error || '未知错误';
+  const errorMsg = data?.error || "未知错误";
 
   // 移除思考中消息
   if (thinkingMessageId) {
-    const thinkingIndex = messages.value.findIndex(m => m.id === thinkingMessageId);
+    const thinkingIndex = messages.value.findIndex(
+      (m) => m.id === thinkingMessageId
+    );
     if (thinkingIndex !== -1) {
       messages.value.splice(thinkingIndex, 1);
     }
@@ -304,9 +319,9 @@ function handleClaudeError(data: any) {
   // 添加错误消息
   messages.value.push({
     id: `msg-error-${Date.now()}`,
-    role: 'assistant' as const,
+    role: "assistant" as const,
     content: `发生错误: ${errorMsg}`,
-    timestamp: new Date().toISOString()
+    timestamp: new Date().toISOString(),
   });
 
   isThinking.value = false;
@@ -317,7 +332,7 @@ async function loadWorkspaceConversation(projectPath: string) {
   try {
     // 首先尝试获取存储的活跃会话ID
     const storedConvID = await WorkspaceGetActiveConversation();
-    console.log('存储的会话ID:', storedConvID);
+    console.log("存储的会话ID:", storedConvID);
 
     let conv = null;
     if (storedConvID) {
@@ -337,10 +352,15 @@ async function loadWorkspaceConversation(projectPath: string) {
         id: msg.id || `msg-${Date.now()}-${Math.random()}`,
         role: msg.role,
         content: msg.content,
-        timestamp: msg.timestamp || new Date().toISOString()
+        timestamp: msg.timestamp || new Date().toISOString(),
       }));
       conversationId.value = conv.id;
-      console.log('加载历史对话成功，消息数:', messages.value.length, '会话ID:', conv.id);
+      console.log(
+        "加载历史对话成功，消息数:",
+        messages.value.length,
+        "会话ID:",
+        conv.id
+      );
 
       // 确保活跃会话ID已设置
       await WorkspaceSetActiveConversation(conv.id);
@@ -351,13 +371,13 @@ async function loadWorkspaceConversation(projectPath: string) {
     } else {
       // 没有历史对话，清空消息
       messages.value = [];
-      conversationId.value = '';
+      conversationId.value = "";
     }
   } catch (error) {
     // 没有历史对话或其他错误，清空消息
-    console.log('没有历史对话:', error);
+    console.log("没有历史对话:", error);
     messages.value = [];
-    conversationId.value = '';
+    conversationId.value = "";
   }
 }
 
@@ -408,8 +428,8 @@ async function handleOpenFolder() {
       }
     }
   } catch (error) {
-    console.error('打开文件夹失败:', error);
-    alert('打开文件夹失败: ' + error);
+    console.error("打开文件夹失败:", error);
+    alert("打开文件夹失败: " + error);
   }
 }
 
@@ -429,7 +449,7 @@ async function handleSelectWorkspace(ws: WorkspaceInfo) {
       messages.value = [];
     }
   } catch (error) {
-    console.error('选择工作区失败:', error);
+    console.error("选择工作区失败:", error);
   }
 }
 
@@ -437,18 +457,18 @@ async function handleSelectWorkspace(ws: WorkspaceInfo) {
 async function handleRemoveWorkspace(path: string, event: Event) {
   event.stopPropagation(); // 阻止事件冒泡
 
-  if (confirm('确定要移除这个工作区吗？')) {
+  if (confirm("确定要移除这个工作区吗？")) {
     try {
       await workspaceStore.removeWorkspace(path);
 
       // 如果移除的是当前工作区
       if (selectedWorkspace.value?.path === path) {
         selectedWorkspace.value = null;
-        conversationId.value = '';
+        conversationId.value = "";
         messages.value = [];
       }
     } catch (error) {
-      console.error('移除工作区失败:', error);
+      console.error("移除工作区失败:", error);
     }
   }
 }
@@ -460,7 +480,7 @@ async function handleSendMessage() {
   }
 
   if (!selectedWorkspace.value) {
-    alert('请先选择一个工作区');
+    alert("请先选择一个工作区");
     return;
   }
 
@@ -468,38 +488,41 @@ async function handleSendMessage() {
   const messageContent = messageInput.value;
 
   // 立即清空输入框
-  messageInput.value = '';
+  messageInput.value = "";
 
   isSending.value = true;
 
   try {
     const userMessage = {
       id: `msg-${Date.now()}`,
-      role: 'user' as const,
+      role: "user" as const,
       content: messageContent,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
     };
     messages.value.push(userMessage);
 
     // 创建会话（如果还没有）
     if (!conversationId.value) {
-      const conv = await ConversationCreate(selectedWorkspace.value.name, selectedWorkspace.value.path);
+      const conv = await ConversationCreate(
+        selectedWorkspace.value.name,
+        selectedWorkspace.value.path
+      );
       conversationId.value = conv.id;
       // 保存活跃会话ID到工作区
       await WorkspaceSetActiveConversation(conv.id);
-      console.log('创建新会话并保存ID:', conv.id);
+      console.log("创建新会话并保存ID:", conv.id);
     }
 
     // 发送到后端（使用事件流式接收响应）
     await ConversationSendWithEvents(conversationId.value, messageContent);
   } catch (error) {
-    console.error('发送消息失败:', error);
-    alert('发送消息失败: ' + error);
+    console.error("发送消息失败:", error);
+    alert("发送消息失败: " + error);
   } finally {
     // 刷新缓冲区并重置流式状态
     flushStreamingMessage();
     streamingMessage = null;
-    streamingBuffer = '';
+    streamingBuffer = "";
     streamingTimer = null;
 
     isSending.value = false;
@@ -527,8 +550,8 @@ function startResizing(event: MouseEvent) {
   isResizing.value = true;
 
   // 添加全局鼠标移动和释放监听
-  document.addEventListener('mousemove', handleResizing);
-  document.addEventListener('mouseup', stopResizing);
+  document.addEventListener("mousemove", handleResizing);
+  document.addEventListener("mouseup", stopResizing);
 }
 
 // 拖动中
@@ -546,16 +569,8 @@ function handleResizing(event: MouseEvent) {
 // 停止拖动
 function stopResizing() {
   isResizing.value = false;
-  document.removeEventListener('mousemove', handleResizing);
-  document.removeEventListener('mouseup', stopResizing);
-}
-
-// 格式化文件大小
-function formatFileSize(bytes: number): string {
-  if (bytes < 1024) return bytes + ' B';
-  if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
-  if (bytes < 1024 * 1024 * 1024) return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
-  return (bytes / (1024 * 1024 * 1024)).toFixed(1) + ' GB';
+  document.removeEventListener("mousemove", handleResizing);
+  document.removeEventListener("mouseup", stopResizing);
 }
 
 // 格式化时间
@@ -564,19 +579,19 @@ function formatTime(timestamp: string): string {
   const now = new Date();
   const diff = now.getTime() - date.getTime();
 
-  if (diff < 60000) return '刚刚';
+  if (diff < 60000) return "刚刚";
   if (diff < 3600000) return `${Math.floor(diff / 60000)} 分钟前`;
   if (diff < 86400000) return `${Math.floor(diff / 3600000)} 小时前`;
   if (diff < 604800000) return `${Math.floor(diff / 86400000)} 天前`;
 
-  return date.toLocaleDateString('zh-CN');
+  return date.toLocaleDateString("zh-CN");
 }
 
 // 处理文件点击
 function handleFileClick(file: FileInfo) {
-  console.log('点击文件:', file);
+  console.log("点击文件:", file);
   // 如果是文件夹，进入该文件夹
-  if (file.type === 'directory') {
+  if (file.type === "directory") {
     enterFolder(file.path);
   }
 }
@@ -585,19 +600,19 @@ function handleFileClick(file: FileInfo) {
 function enterFolder(folderPath: string) {
   currentFolderFilter.value = folderPath;
   expandedFolders.value.add(folderPath);
-  console.log('进入文件夹:', folderPath);
+  console.log("进入文件夹:", folderPath);
 }
 
 // 返回上级文件夹
 function navigateToFolder(folderPath: string) {
   currentFolderFilter.value = folderPath;
-  console.log('导航到文件夹:', folderPath);
+  console.log("导航到文件夹:", folderPath);
 }
 
 // 返回根目录
 function navigateToRoot() {
   currentFolderFilter.value = null;
-  console.log('返回根目录');
+  console.log("返回根目录");
 }
 
 // 处理右键菜单
@@ -634,7 +649,7 @@ function handleContextMenu(event: MouseEvent, file: FileInfo) {
     visible: true,
     x,
     y,
-    file
+    file,
   };
 }
 
@@ -646,16 +661,19 @@ function closeContextMenu() {
 // 发送文件路径到输入框
 async function sendFilePathToInput(file: FileInfo) {
   if (!selectedWorkspace.value) {
-    alert('请先选择工作区');
+    alert("请先选择工作区");
     return;
   }
 
   // 计算相对路径
-  const relativePath = file.path.replace(selectedWorkspace.value.path + '/', '');
-  const pathMessage = `@${relativePath} `;  // 路径后加空格
+  const relativePath = file.path.replace(
+    selectedWorkspace.value.path + "/",
+    ""
+  );
+  const pathMessage = `@${relativePath} `; // 路径后加空格
 
   // 添加到输入框
-  messageInput.value += (messageInput.value ? '\n' : '') + pathMessage;
+  messageInput.value += (messageInput.value ? "\n" : "") + pathMessage;
 
   // 关闭右键菜单
   closeContextMenu();
@@ -665,14 +683,17 @@ async function sendFilePathToInput(file: FileInfo) {
   if (messageInputRef.value) {
     messageInputRef.value.focus();
     // 将光标移动到文本末尾
-    messageInputRef.value.setSelectionRange(messageInput.value.length, messageInput.value.length);
+    messageInputRef.value.setSelectionRange(
+      messageInput.value.length,
+      messageInput.value.length
+    );
   }
 }
 
 // 打开文件/文件夹
 async function openFile(file: FileInfo) {
   try {
-    if (file.type === 'directory') {
+    if (file.type === "directory") {
       // 如果是目录，进入该目录
       enterFolder(file.path);
     } else {
@@ -680,30 +701,30 @@ async function openFile(file: FileInfo) {
       await SystemOpenFile(file.path);
     }
   } catch (error) {
-    console.error('打开失败:', error);
-    alert('打开失败: ' + error);
+    console.error("打开失败:", error);
+    alert("打开失败: " + error);
   }
   closeContextMenu();
 }
 
 // 重命名文件
 async function renameFile(file: FileInfo) {
-  const newName = prompt('请输入新名称:', file.name);
+  const newName = prompt("请输入新名称:", file.name);
   if (!newName || newName === file.name) {
     closeContextMenu();
     return;
   }
 
   // 验证新名称
-  if (newName.includes('/') || newName.includes('\\')) {
-    alert('文件名不能包含斜杠');
+  if (newName.includes("/") || newName.includes("\\")) {
+    alert("文件名不能包含斜杠");
     closeContextMenu();
     return;
   }
 
   try {
     // 计算新路径
-    const lastSlashIndex = file.path.lastIndexOf('/');
+    const lastSlashIndex = file.path.lastIndexOf("/");
     let newPath: string;
 
     if (lastSlashIndex === -1) {
@@ -719,23 +740,25 @@ async function renameFile(file: FileInfo) {
 
     await WorkspaceRenameFile(file.path, newPath);
 
-    console.log('重命名成功');
+    console.log("重命名成功");
 
     // 重新加载文件树
     await workspaceStore.loadFiles();
 
-    alert('重命名成功！');
+    alert("重命名成功！");
   } catch (error) {
-    console.error('重命名失败:', error);
-    alert('重命名失败: ' + error);
+    console.error("重命名失败:", error);
+    alert("重命名失败: " + error);
   }
   closeContextMenu();
 }
 
 // 删除文件
 async function deleteFile(file: FileInfo) {
-  const typeText = file.type === 'directory' ? '文件夹' : '文件';
-  if (!confirm(`确定要删除${typeText} "${file.name}" 吗？\n\n此操作不可恢复！`)) {
+  const typeText = file.type === "directory" ? "文件夹" : "文件";
+  if (
+    !confirm(`确定要删除${typeText} "${file.name}" 吗？\n\n此操作不可恢复！`)
+  ) {
     closeContextMenu();
     return;
   }
@@ -745,15 +768,15 @@ async function deleteFile(file: FileInfo) {
 
     await WorkspaceDeleteFile(file.path);
 
-    console.log('删除成功');
+    console.log("删除成功");
 
     // 重新加载文件树
     await workspaceStore.loadFiles();
 
-    alert('删除成功！');
+    alert("删除成功！");
   } catch (error) {
-    console.error('删除失败:', error);
-    alert('删除失败: ' + error);
+    console.error("删除失败:", error);
+    alert("删除失败: " + error);
   }
   closeContextMenu();
 }
@@ -763,8 +786,8 @@ async function openInTerminal(file: FileInfo) {
   try {
     await SystemOpenTerminal(file.path);
   } catch (error) {
-    console.error('打开终端失败:', error);
-    alert('打开终端失败: ' + error);
+    console.error("打开终端失败:", error);
+    alert("打开终端失败: " + error);
   }
   closeContextMenu();
 }
@@ -774,67 +797,85 @@ async function revealInFinder(file: FileInfo) {
   try {
     await SystemRevealInFinder(file.path);
   } catch (error) {
-    console.error('在Finder中显示失败:', error);
-    alert('在Finder中显示失败: ' + error);
+    console.error("在Finder中显示失败:", error);
+    alert("在Finder中显示失败: " + error);
   }
   closeContextMenu();
 }
 
 // 获取文件图标
 function getFileIcon(file: FileInfo): string {
-  if (file.type === 'directory') {
-    return '📁';
+  if (file.type === "directory") {
+    return "📁";
   }
 
-  const ext = file.name.split('.').pop()?.toLowerCase() || '';
+  const ext = file.name.split(".").pop()?.toLowerCase() || "";
 
   // 代码文件
-  if (['js', 'ts', 'jsx', 'tsx', 'vue', 'go', 'py', 'java', 'c', 'cpp', 'h', 'hpp', 'rs', 'rb', 'php'].includes(ext)) {
-    return '📄';
+  if (
+    [
+      "js",
+      "ts",
+      "jsx",
+      "tsx",
+      "vue",
+      "go",
+      "py",
+      "java",
+      "c",
+      "cpp",
+      "h",
+      "hpp",
+      "rs",
+      "rb",
+      "php",
+    ].includes(ext)
+  ) {
+    return "📄";
   }
 
   // 样式文件
-  if (['css', 'scss', 'sass', 'less'].includes(ext)) {
-    return '🎨';
+  if (["css", "scss", "sass", "less"].includes(ext)) {
+    return "🎨";
   }
 
   // 配置文件
-  if (['json', 'yaml', 'yml', 'toml', 'ini', 'conf', 'config'].includes(ext)) {
-    return '⚙️';
+  if (["json", "yaml", "yml", "toml", "ini", "conf", "config"].includes(ext)) {
+    return "⚙️";
   }
 
   // Markdown
-  if (['md', 'markdown'].includes(ext)) {
-    return '📝';
+  if (["md", "markdown"].includes(ext)) {
+    return "📝";
   }
 
   // 图片
-  if (['png', 'jpg', 'jpeg', 'gif', 'svg', 'ico', 'webp'].includes(ext)) {
-    return '🖼️';
+  if (["png", "jpg", "jpeg", "gif", "svg", "ico", "webp"].includes(ext)) {
+    return "🖼️";
   }
 
   // 音频
-  if (['mp3', 'wav', 'ogg', 'flac'].includes(ext)) {
-    return '🎵';
+  if (["mp3", "wav", "ogg", "flac"].includes(ext)) {
+    return "🎵";
   }
 
   // 视频
-  if (['mp4', 'avi', 'mov', 'wmv', 'flv'].includes(ext)) {
-    return '🎬';
+  if (["mp4", "avi", "mov", "wmv", "flv"].includes(ext)) {
+    return "🎬";
   }
 
   // 压缩文件
-  if (['zip', 'rar', '7z', 'tar', 'gz'].includes(ext)) {
-    return '📦';
+  if (["zip", "rar", "7z", "tar", "gz"].includes(ext)) {
+    return "📦";
   }
 
   // 文本文件
-  if (['txt', 'log'].includes(ext)) {
-    return '📃';
+  if (["txt", "log"].includes(ext)) {
+    return "📃";
   }
 
   // 默认文件图标
-  return '📄';
+  return "📄";
 }
 </script>
 
@@ -859,15 +900,19 @@ function getFileIcon(file: FileInfo): string {
             :class="{
               success: envStore.allPassed,
               failed: envStore.hasRequiredFailed,
-              partial: !envStore.allPassed && !envStore.hasRequiredFailed
+              partial: !envStore.allPassed && !envStore.hasRequiredFailed,
             }"
           >
-            {{ envStore.allPassed ? '正常' : '异常' }}
+            {{ envStore.allPassed ? "正常" : "异常" }}
           </span>
         </div>
 
         <!-- 打开工作区按钮 -->
-        <button class="workspace-btn" @click="handleOpenFolder" title="打开工作区">
+        <button
+          class="workspace-btn"
+          @click="handleOpenFolder"
+          title="打开工作区"
+        >
           📁 打开文件夹
         </button>
       </div>
@@ -876,12 +921,21 @@ function getFileIcon(file: FileInfo): string {
     <!-- 主内容区 -->
     <div class="content">
       <!-- 左侧边栏展开指示器（小凸起） -->
-      <div v-if="!showSidebar" class="sidebar-tab" @click="toggleSidebar" title="展开侧边栏">
+      <div
+        v-if="!showSidebar"
+        class="sidebar-tab"
+        @click="toggleSidebar"
+        title="展开侧边栏"
+      >
         <span class="tab-icon">▶</span>
       </div>
 
       <!-- 左侧边栏 -->
-      <div v-if="showSidebar" class="sidebar" :style="{ width: sidebarWidth + 'px' }">
+      <div
+        v-if="showSidebar"
+        class="sidebar"
+        :style="{ width: sidebarWidth + 'px' }"
+      >
         <!-- 工作区列表 -->
         <div class="section workspace-list-section">
           <div class="section-header">
@@ -906,8 +960,12 @@ function getFileIcon(file: FileInfo): string {
                 <div class="workspace-info">
                   <div class="workspace-name">{{ ws.name }}</div>
                   <div class="workspace-meta">
-                    <span class="workspace-time">{{ formatTime(ws.lastOpened) }}</span>
-                    <span v-if="ws.isOpen" class="workspace-status">● 当前</span>
+                    <span class="workspace-time">{{
+                      formatTime(ws.lastOpened)
+                    }}</span>
+                    <span v-if="ws.isOpen" class="workspace-status"
+                      >● 当前</span
+                    >
                   </div>
                 </div>
               </div>
@@ -919,7 +977,10 @@ function getFileIcon(file: FileInfo): string {
                 ✕
               </button>
             </div>
-            <div v-if="workspaceStore.workspaces.length === 0" class="empty-state">
+            <div
+              v-if="workspaceStore.workspaces.length === 0"
+              class="empty-state"
+            >
               暂无工作区，点击右上角"打开文件夹"添加
             </div>
           </div>
@@ -937,7 +998,10 @@ function getFileIcon(file: FileInfo): string {
               🏠 根目录
             </span>
             <span class="breadcrumb-separator">/</span>
-            <template v-for="(crumb, index) in breadcrumbPath" :key="crumb.path">
+            <template
+              v-for="(crumb, index) in breadcrumbPath"
+              :key="crumb.path"
+            >
               <span
                 v-if="index === breadcrumbPath.length - 1"
                 class="breadcrumb-item current"
@@ -951,7 +1015,11 @@ function getFileIcon(file: FileInfo): string {
               >
                 {{ crumb.name }}
               </span>
-              <span v-if="index < breadcrumbPath.length - 1" class="breadcrumb-separator">/</span>
+              <span
+                v-if="index < breadcrumbPath.length - 1"
+                class="breadcrumb-separator"
+                >/</span
+              >
             </template>
           </div>
 
@@ -967,7 +1035,7 @@ function getFileIcon(file: FileInfo): string {
             >
               <div class="file-item-row">
                 <span class="file-icon">
-                  {{ file.type === 'directory' ? '📁' : getFileIcon(file) }}
+                  {{ file.type === "directory" ? "📁" : getFileIcon(file) }}
                 </span>
                 <div class="file-info">
                   <div class="file-name">{{ file.name }}</div>
@@ -975,12 +1043,10 @@ function getFileIcon(file: FileInfo): string {
               </div>
             </div>
             <div v-if="filteredFiles.length === 0" class="empty-state-small">
-              {{ currentFolderFilter ? '文件夹为空' : '工作区为空' }}
+              {{ currentFolderFilter ? "文件夹为空" : "工作区为空" }}
             </div>
           </div>
-          <div v-else class="empty-state-small">
-            未选择工作区
-          </div>
+          <div v-else class="empty-state-small">未选择工作区</div>
         </div>
 
         <!-- 右键菜单 -->
@@ -994,32 +1060,40 @@ function getFileIcon(file: FileInfo): string {
             📂 打开
           </div>
           <div class="context-menu-divider"></div>
-          <div class="context-menu-item" @click="sendFilePathToInput(contextMenu.file!)">
+          <div
+            class="context-menu-item"
+            @click="sendFilePathToInput(contextMenu.file!)"
+          >
             📎 发送路径到输入框
           </div>
           <div class="context-menu-divider"></div>
           <div class="context-menu-item" @click="renameFile(contextMenu.file!)">
             ✏️ 重命名
           </div>
-          <div class="context-menu-item danger" @click="deleteFile(contextMenu.file!)">
+          <div
+            class="context-menu-item danger"
+            @click="deleteFile(contextMenu.file!)"
+          >
             🗑️ 删除
           </div>
           <div class="context-menu-divider"></div>
-          <div class="context-menu-item" @click="openInTerminal(contextMenu.file!)">
+          <div
+            class="context-menu-item"
+            @click="openInTerminal(contextMenu.file!)"
+          >
             💻 在终端中打开
           </div>
-          <div class="context-menu-item" @click="revealInFinder(contextMenu.file!)">
+          <div
+            class="context-menu-item"
+            @click="revealInFinder(contextMenu.file!)"
+          >
             👁️ 在Finder中显示
           </div>
         </div>
       </div>
 
       <!-- 拖动条 -->
-      <div
-        v-if="showSidebar"
-        class="resizer"
-        @mousedown="startResizing"
-      ></div>
+      <div v-if="showSidebar" class="resizer" @mousedown="startResizing"></div>
 
       <!-- 主对话区 -->
       <div class="main-area">
@@ -1028,27 +1102,40 @@ function getFileIcon(file: FileInfo): string {
           <span class="workspace-name">{{ selectedWorkspace.name }}</span>
           <span class="status-indicator" :class="{ active: conversationId }">
             <span class="status-dot"></span>
-            <span class="status-text">{{ conversationId ? '会话中' : '未连接' }}</span>
+            <span class="status-text">{{
+              conversationId ? "会话中" : "未连接"
+            }}</span>
           </span>
         </div>
 
         <!-- 消息列表 -->
-        <div v-if="messages.length > 0" ref="messageListRef" class="message-list">
+        <div
+          v-if="messages.length > 0"
+          ref="messageListRef"
+          class="message-list"
+        >
           <div
             v-for="msg in messages"
             :key="msg.id"
-            v-show="msg.content.trim() !== '' || msg.role === 'user' || msg.id.includes('thinking')"
+            v-show="
+              msg.content.trim() !== '' ||
+              msg.role === 'user' ||
+              msg.id.includes('thinking')
+            "
             class="message-item"
             :class="msg.role"
           >
             <div class="message-header">
               <span class="message-role">
-                {{ msg.role === 'user' ? '用户' : 'Claude' }}
+                {{ msg.role === "user" ? "用户" : "Claude" }}
               </span>
               <span class="message-time">{{ formatTime(msg.timestamp) }}</span>
             </div>
             <!-- 思考中消息显示动画 -->
-            <div v-if="msg.id.includes('thinking')" class="message-content thinking-content">
+            <div
+              v-if="msg.id.includes('thinking')"
+              class="message-content thinking-content"
+            >
               <span class="thinking-text">思考中</span>
               <span class="thinking-dots">
                 <span class="dot"></span>
@@ -1065,9 +1152,7 @@ function getFileIcon(file: FileInfo): string {
         <div v-else-if="selectedWorkspace" class="welcome-screen">
           <div class="welcome-icon">💬</div>
           <h2 class="welcome-title">{{ selectedWorkspace.name }}</h2>
-          <p class="welcome-desc">
-            当前工作区: {{ selectedWorkspace.path }}
-          </p>
+          <p class="welcome-desc">当前工作区: {{ selectedWorkspace.path }}</p>
           <div class="welcome-hint">
             <p>💡 在下方输入消息开始与 Claude 对话</p>
           </div>
@@ -1077,9 +1162,7 @@ function getFileIcon(file: FileInfo): string {
         <div v-else class="welcome-screen">
           <div class="welcome-icon">👋</div>
           <h2 class="welcome-title">欢迎使用 Claude Desktop</h2>
-          <p class="welcome-desc">
-            选择或打开一个工作区开始使用
-          </p>
+          <p class="welcome-desc">选择或打开一个工作区开始使用</p>
         </div>
 
         <!-- 输入区域 -->
@@ -1090,7 +1173,9 @@ function getFileIcon(file: FileInfo): string {
             class="message-input"
             placeholder="输入消息... (Shift+Enter 换行, Enter 发送)"
             rows="3"
-            @keydown.enter.exact.prevent="isThinking ? handleStopThinking() : handleSendMessage()"
+            @keydown.enter.exact.prevent="
+              isThinking ? handleStopThinking() : handleSendMessage()
+            "
           ></textarea>
           <div class="input-actions">
             <span class="input-hint">{{ messageInput.length }} 字符</span>
@@ -1101,13 +1186,9 @@ function getFileIcon(file: FileInfo): string {
               :disabled="!messageInput.trim() || isSending"
               @click="handleSendMessage"
             >
-              {{ isSending ? '发送中...' : '发送' }}
+              {{ isSending ? "发送中..." : "发送" }}
             </button>
-            <button
-              v-else
-              class="stop-btn-inline"
-              @click="handleStopThinking"
-            >
+            <button v-else class="stop-btn-inline" @click="handleStopThinking">
               <span class="stop-icon">⏹</span>
               <span class="stop-text">停止</span>
             </button>
@@ -1862,7 +1943,7 @@ function getFileIcon(file: FileInfo): string {
 
   // 添加拖动时的视觉反馈
   &::after {
-    content: '';
+    content: "";
     position: absolute;
     left: 50%;
     top: 50%;
@@ -1878,7 +1959,9 @@ function getFileIcon(file: FileInfo): string {
 <!-- 思考动画关键帧 -->
 <style>
 @keyframes thinking-bounce {
-  0%, 60%, 100% {
+  0%,
+  60%,
+  100% {
     transform: translateY(0);
     opacity: 0.3;
   }

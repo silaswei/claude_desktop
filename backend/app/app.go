@@ -36,12 +36,8 @@ func NewApp() *App {
 	// 创建环境检测管理器
 	envManager := detector.NewManager(envConfig)
 
-	// 获取用户主目录
-	homeDir, _ := os.UserHomeDir()
-	dataDir := filepath.Join(homeDir, ".claude-terminal")
-
 	// 创建存储服务
-	storage, _ := conversation.NewJSONStorage(dataDir)
+	storage, _ := conversation.NewJSONStorage()
 
 	// 创建工作区管理器
 	workspaceManager := workspace.NewManager()

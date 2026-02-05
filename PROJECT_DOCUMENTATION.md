@@ -204,7 +204,7 @@ type Manager struct {
 ```
 
 **持久化:**
-- 文件位置: `~/.claude-terminal/workspaces.json`
+- 文件位置: `~/.claude-desktop/workspaces.json`
 - 格式: JSON
 - 触发时机: 打开/关闭/选择工作区、设置活跃会话时自动保存
 
@@ -231,7 +231,7 @@ type Message struct {
 ```
 
 **存储:**
-- 文件位置: `~/.claude-terminal/conversations/{id}.json`
+- 文件位置: `~/.claude-desktop/conversations/{id}.json`
 - 格式: JSON
 - 一个对话一个文件
 
@@ -425,7 +425,7 @@ function handleClaudeComplete(data: any) {
     ├─ 是 → 更新 LastOpened，设为当前
     └─ 否 → 创建新 Workspace，添加到列表
     ↓
-异步保存到 ~/.claude-terminal/workspaces.json
+异步保存到 ~/.claude-desktop/workspaces.json
     ↓
 返回工作区信息
 ```
@@ -599,7 +599,7 @@ type DetectionResult struct {
     ├─ partial: 部分必需项通过
     └─ failed: 无必需项通过
     ↓
-保存到缓存 (~/.claude-terminal/cache/env_check.json)
+保存到缓存 (~/.claude-desktop/cache/env_check.json)
     ↓
 返回环境信息
 ```
@@ -976,7 +976,7 @@ CLI 执行完成
     ├─ 是 → 更新 LastOpened，设为当前工作区
     └─ 否 → 创建新 Workspace 对象，添加到列表
     ↓
-异步保存到 ~/.claude-terminal/workspaces.json
+异步保存到 ~/.claude-desktop/workspaces.json
     ↓
 返回工作区信息
     ↓
@@ -1019,7 +1019,7 @@ CLI 执行完成
     ↓
 计算整体状态 (success/partial/failed)
     ↓
-保存到缓存 (~/.claude-terminal/cache/env_check.json)
+保存到缓存 (~/.claude-desktop/cache/env_check.json)
     ↓
 返回环境信息
     ↓
@@ -1155,7 +1155,7 @@ function handleClaudeError(data: any) {
 **工作区持久化:**
 - 时机: 打开/关闭/选择工作区、设置活跃会话时
 - 方式: 异步保存 (goroutine)
-- 文件: `~/.claude-terminal/workspaces.json`
+- 文件: `~/.claude-desktop/workspaces.json`
 
 ```go
 func (m *Manager) saveToStorage() {
@@ -1172,7 +1172,7 @@ func (m *Manager) saveToStorage() {
 **对话持久化:**
 - 时机: 每次发送消息后
 - 方式: 同步保存
-- 文件: `~/.claude-terminal/conversations/{id}.json`
+- 文件: `~/.claude-desktop/conversations/{id}.json`
 
 ```go
 func (s *JSONStorage) SaveConversation(conv *Conversation) error {
@@ -1372,11 +1372,11 @@ EventsOn('claude:response', (data) => {
 
 ```bash
 # macOS
-cat ~/.claude-terminal/workspaces.json
+cat ~/.claude-desktop/workspaces.json
 
 # 查看对话
-ls ~/.claude-terminal/conversations/
-cat ~/.claude-terminal/conversations/{conversation-id}.json
+ls ~/.claude-desktop/conversations/
+cat ~/.claude-desktop/conversations/{conversation-id}.json
 ```
 
 ---
@@ -1542,7 +1542,7 @@ scanner.Buffer(buf, 1024*1024)  // 最大 1MB
 
 **macOS/Linux:**
 ```
-~/.claude-terminal/
+~/.claude-desktop/
 ├── conversations/     # 对话历史
 │   ├── {id}.json
 │   └── ...

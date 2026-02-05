@@ -60,7 +60,7 @@ wails build
 
 编译成功后，应用程序将位于：
 ```
-build/bin/claude-terminal.app
+build/bin/claude-desktop.app
 ```
 
 ## 功能验证

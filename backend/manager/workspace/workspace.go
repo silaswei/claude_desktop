@@ -35,7 +35,7 @@ type Manager struct {
 func NewManager() *Manager {
 	// 获取用户主目录
 	homeDir, _ := os.UserHomeDir()
-	storageDir := filepath.Join(homeDir, ".claude-terminal")
+	storageDir := filepath.Join(homeDir, ".claude-desktop")
 
 	// 确保目录存在
 	os.MkdirAll(storageDir, 0755)

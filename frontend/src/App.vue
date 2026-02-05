@@ -1,30 +1,14 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
-import LaunchView from './views/LaunchView.vue';
-import MainView from './views/MainView.vue';
+import { ref, onMounted } from "vue";
+import LaunchView from "./views/LaunchView.vue";
+import MainView from "./views/MainView.vue";
 
 const isLaunched = ref(false);
-
-const onclickMinimise = () => {
-  // @ts-ignore - Wails runtime
-  if (window.runtime) {
-    // @ts-ignore
-    window.runtime.WindowMinimise();
-  }
-};
-
-const onclickQuit = () => {
-  // @ts-ignore - Wails runtime
-  if (window.runtime) {
-    // @ts-ignore
-    window.runtime.Quit();
-  }
-};
 
 // 模拟启动流程
 onMounted(() => {
   // 阻止右键菜单（可选）
-  document.addEventListener('contextmenu', (e) => {
+  document.addEventListener("contextmenu", (e) => {
     e.preventDefault();
   });
 });
@@ -51,7 +35,7 @@ body {
   height: 100%;
   margin: 0;
   padding: 0;
-  font-family: 'JetBrainsMono';
+  font-family: "JetBrainsMono";
   background-color: transparent;
 }
 

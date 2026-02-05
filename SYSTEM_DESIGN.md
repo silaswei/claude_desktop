@@ -195,7 +195,7 @@ type Message struct {
 
 #### 3.2.3 本地存储
 - 使用 JSON 文件存储对话历史
-- 路径: `~/.claude-terminal/conversations/`
+- 路径: `~/.claude-desktop/conversations/`
 - 支持导入/导出功能
 
 ### 3.3 项目管理模块

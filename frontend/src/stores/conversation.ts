@@ -1,7 +1,7 @@
-import { defineStore } from 'pinia';
-import { ref, computed } from 'vue';
-import type { CreateConversationRequest } from '../types/conversation';
-import type { conversation } from '../../wailsjs/go/models';
+import { defineStore } from "pinia";
+import { ref, computed } from "vue";
+import type { CreateConversationRequest } from "@/types/conversation";
+import type { conversation } from "../../wailsjs/go/models";
 import {
   ConversationCreate,
   ConversationDelete,
@@ -9,13 +9,13 @@ import {
   ConversationList,
   ConversationUpdate,
   ConversationSend,
-  ConversationSendWithCallback
-} from '../../wailsjs/go/app/App';
+  ConversationSendWithCallback,
+} from "../../wailsjs/go/app/App";
 
 // 使用 Wails 生成的类型
 type Conversation = conversation.Conversation;
 
-export const useConversationStore = defineStore('conversation', () => {
+export const useConversationStore = defineStore("conversation", () => {
   // ==================== 状态 ====================
 
   // 对话列表
@@ -36,7 +36,7 @@ export const useConversationStore = defineStore('conversation', () => {
   const conversationsByWorkspace = computed(() => {
     const groups: Record<string, Conversation[]> = {};
     conversations.value.forEach((conv) => {
-      const key = conv.projectPath || '未分类';
+      const key = conv.projectPath || "未分类";
       if (!groups[key]) {
         groups[key] = [];
       }
@@ -48,7 +48,10 @@ export const useConversationStore = defineStore('conversation', () => {
   // 最近对话
   const recentConversations = computed(() => {
     return [...conversations.value]
-      .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
+      .sort(
+        (a, b) =>
+          new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
+      )
       .slice(0, 10);
   });
 
@@ -80,12 +83,17 @@ export const useConversationStore = defineStore('conversation', () => {
   /**
    * 创建新对话
    */
-  async function createConversation(request: CreateConversationRequest): Promise<Conversation> {
+  async function createConversation(
+    request: CreateConversationRequest
+  ): Promise<Conversation> {
     loading.value = true;
     error.value = null;
 
     try {
-      const result = await ConversationCreate(request.title, request.workspacePath);
+      const result = await ConversationCreate(
+        request.title,
+        request.workspacePath
+      );
       conversations.value.push(result);
       return result;
     } catch (err) {
@@ -151,7 +159,9 @@ export const useConversationStore = defineStore('conversation', () => {
       await ConversationUpdate(conversation);
 
       // 更新列表中的对话
-      const index = conversations.value.findIndex((c) => c.id === conversation.id);
+      const index = conversations.value.findIndex(
+        (c) => c.id === conversation.id
+      );
       if (index !== -1) {
         conversations.value[index] = conversation;
       }
@@ -182,7 +192,11 @@ export const useConversationStore = defineStore('conversation', () => {
     try {
       let result: Conversation;
       if (onChunk) {
-        result = await ConversationSendWithCallback(conversationId, content, onChunk);
+        result = await ConversationSendWithCallback(
+          conversationId,
+          content,
+          onChunk
+        );
       } else {
         result = await ConversationSend(conversationId, content);
       }

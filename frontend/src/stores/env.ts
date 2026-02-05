@@ -1,9 +1,14 @@
-import { defineStore } from 'pinia';
-import { ref, computed } from 'vue';
-import type { EnvironmentInfo, DetectionResult } from '../types';
-import { EnvDetectAll, EnvDetectByName, EnvGetStatus, EnvClearCache } from '../../wailsjs/go/app/App';
+import { defineStore } from "pinia";
+import { ref, computed } from "vue";
+import type { EnvironmentInfo, DetectionResult } from "@/types";
+import {
+  EnvDetectAll,
+  EnvDetectByName,
+  EnvGetStatus,
+  EnvClearCache,
+} from "../../wailsjs/go/app/App";
 
-export const useEnvStore = defineStore('env', () => {
+export const useEnvStore = defineStore("env", () => {
   // ==================== 状态 ====================
   const envInfo = ref<EnvironmentInfo | null>(null);
   const isDetecting = ref(false);
@@ -13,14 +18,14 @@ export const useEnvStore = defineStore('env', () => {
 
   // 所有检测是否通过
   const allPassed = computed<boolean>(() => {
-    return envInfo.value?.status === 'success';
+    return envInfo.value?.status === "success";
   });
 
   // 是否有必需项失败
   const hasRequiredFailed = computed<boolean>(() => {
     if (!envInfo.value?.results) return false;
     return envInfo.value.results.some(
-      (r: DetectionResult) => r.required && r.status === 'failed'
+      (r: DetectionResult) => r.required && r.status === "failed"
     );
   });
 
@@ -67,7 +72,9 @@ export const useEnvStore = defineStore('env', () => {
 
       // 更新对应的检测结果
       if (envInfo.value?.results) {
-        const index = envInfo.value.results.findIndex((r: DetectionResult) => r.name === name);
+        const index = envInfo.value.results.findIndex(
+          (r: DetectionResult) => r.name === name
+        );
         if (index !== -1) {
           envInfo.value.results[index] = result;
           // 重新计算整体状态
@@ -125,7 +132,7 @@ export const useEnvStore = defineStore('env', () => {
     for (const result of results) {
       if (result.required) {
         totalRequired++;
-        if (result.status === 'success') {
+        if (result.status === "success") {
           totalRequiredPassed++;
         }
       }
@@ -136,11 +143,11 @@ export const useEnvStore = defineStore('env', () => {
 
     // 确定整体状态
     if (totalRequiredPassed === totalRequired) {
-      envInfo.value.status = 'success';
+      envInfo.value.status = "success";
     } else if (totalRequiredPassed > 0) {
-      envInfo.value.status = 'partial';
+      envInfo.value.status = "partial";
     } else {
-      envInfo.value.status = 'failed';
+      envInfo.value.status = "failed";
     }
   }
 

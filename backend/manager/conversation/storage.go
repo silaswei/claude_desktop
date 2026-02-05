@@ -19,13 +19,17 @@ type Storage interface {
 
 // JSONStorage JSON 文件存储实现
 type JSONStorage struct {
-	mu        sync.RWMutex
-	baseDir   string
-	convDir   string
+	mu      sync.RWMutex
+	baseDir string
+	convDir string
 }
 
 // NewJSONStorage 创建 JSON 存储实例
-func NewJSONStorage(baseDir string) (*JSONStorage, error) {
+func NewJSONStorage() (*JSONStorage, error) {
+	// 获取用户主目录
+	homeDir, _ := os.UserHomeDir()
+	baseDir := filepath.Join(homeDir, ".claude-desktop")
+
 	// 创建基础目录
 	if err := os.MkdirAll(baseDir, 0755); err != nil {
 		return nil, fmt.Errorf("failed to create base directory: %w", err)

@@ -1,20 +1,20 @@
-import { defineStore } from 'pinia';
-import { ref } from 'vue';
+import { defineStore } from "pinia";
+import { ref } from "vue";
 
 // 定义页面类型
-type PageType = 'launch' | 'main' | 'settings';
+type PageType = "launch" | "main" | "settings";
 
 // 定义启动状态类型
-type LaunchStateType = 'detecting' | 'success' | 'failed' | 'idle';
+type LaunchStateType = "detecting" | "success" | "failed" | "idle";
 
-export const useUiStore = defineStore('ui', () => {
+export const useUiStore = defineStore("ui", () => {
   // ==================== 状态 ====================
 
   // 当前页面
-  const currentPage = ref<PageType>('launch');
+  const currentPage = ref<PageType>("launch");
 
   // 启动页状态
-  const launchState = ref<LaunchStateType>('idle');
+  const launchState = ref<LaunchStateType>("idle");
 
   // ==================== 方法 ====================
 
@@ -36,8 +36,8 @@ export const useUiStore = defineStore('ui', () => {
    * 重置状态
    */
   function reset(): void {
-    currentPage.value = 'launch';
-    launchState.value = 'idle';
+    currentPage.value = "launch";
+    launchState.value = "idle";
   }
 
   // ==================== 返回 ====================

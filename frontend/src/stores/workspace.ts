@@ -1,6 +1,6 @@
-import { defineStore } from 'pinia';
-import { ref, computed } from 'vue';
-import type { FileInfo, WorkspaceInfo } from '../types/workspace';
+import { defineStore } from "pinia";
+import { ref, computed } from "vue";
+import type { FileInfo, WorkspaceInfo } from "@/types/workspace";
 import {
   WorkspaceOpen,
   WorkspaceClose,
@@ -12,17 +12,17 @@ import {
   WorkspaceWriteFile,
   WorkspaceDeleteFile,
   WorkspaceCreateFile,
-  WorkspaceGetInfo
-} from '../../wailsjs/go/app/App';
+  WorkspaceGetInfo,
+} from "../../wailsjs/go/app/App";
 
-export const useWorkspaceStore = defineStore('workspace', () => {
+export const useWorkspaceStore = defineStore("workspace", () => {
   // ==================== 状态 ====================
 
   // 工作区列表
   const workspaces = ref<WorkspaceInfo[]>([]);
 
   // 当前选中的工作区路径
-  const currentPath = ref<string>('');
+  const currentPath = ref<string>("");
 
   // 当前工作区信息
   const workspaceInfo = ref<WorkspaceInfo | null>(null);
@@ -39,16 +39,16 @@ export const useWorkspaceStore = defineStore('workspace', () => {
   // ==================== 计算属性 ====================
 
   // 是否已打开工作区
-  const isOpen = computed(() => currentPath.value !== '');
+  const isOpen = computed(() => currentPath.value !== "");
 
   // 当前工作区名称
   const workspaceName = computed(() => {
-    return workspaceInfo.value?.name || '';
+    return workspaceInfo.value?.name || "";
   });
 
   // 当前工作区对象
   const currentWorkspace = computed(() => {
-    return workspaces.value.find(ws => ws.path === currentPath.value) || null;
+    return workspaces.value.find((ws) => ws.path === currentPath.value) || null;
   });
 
   // ==================== 方法 ====================
@@ -120,7 +120,7 @@ export const useWorkspaceStore = defineStore('workspace', () => {
       await loadFiles();
 
       // 更新工作区列表的打开状态
-      workspaces.value.forEach(ws => {
+      workspaces.value.forEach((ws) => {
         ws.isOpen = ws.path === path;
       });
     } catch (err) {
@@ -142,11 +142,11 @@ export const useWorkspaceStore = defineStore('workspace', () => {
       await WorkspaceRemove(path);
 
       // 从列表中移除
-      workspaces.value = workspaces.value.filter(ws => ws.path !== path);
+      workspaces.value = workspaces.value.filter((ws) => ws.path !== path);
 
       // 如果移除的是当前工作区，清空当前状态
       if (currentPath.value === path) {
-        currentPath.value = '';
+        currentPath.value = "";
         workspaceInfo.value = null;
         files.value = [];
       }
@@ -167,12 +167,12 @@ export const useWorkspaceStore = defineStore('workspace', () => {
 
     try {
       await WorkspaceClose();
-      currentPath.value = '';
+      currentPath.value = "";
       workspaceInfo.value = null;
       files.value = [];
 
       // 更新工作区列表的打开状态
-      workspaces.value.forEach(ws => {
+      workspaces.value.forEach((ws) => {
         ws.isOpen = false;
       });
     } catch (err) {

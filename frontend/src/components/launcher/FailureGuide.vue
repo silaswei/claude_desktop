@@ -1,10 +1,10 @@
 <script setup lang="ts">
-import { computed } from 'vue';
-import { useEnvStore } from '../../stores/env';
-import type { DetectionResult } from '../../types/env';
+import { computed } from "vue";
+import { useEnvStore } from "@/stores/env";
+import type { DetectionResult } from "@/types/env";
 
 // 定义 emit - 使用数组语法避免 TypeScript 类型错误
-const emit = defineEmits(['retry', 'skip']);
+const emit = defineEmits(["retry", "skip"]);
 
 const envStore = useEnvStore();
 
@@ -13,7 +13,9 @@ const failedItems = computed<DetectionResult[]>(() => {
   if (!envStore.envInfo || !envStore.envInfo.results) {
     return [];
   }
-  return envStore.envInfo.results.filter((r: DetectionResult) => r.status === 'failed');
+  return envStore.envInfo.results.filter(
+    (r: DetectionResult) => r.status === "failed"
+  );
 });
 
 // 是否有必需项失败
@@ -25,9 +27,9 @@ const hasRequiredFailed = computed(() => {
 const copyCommand = async (command: string) => {
   try {
     await navigator.clipboard.writeText(command);
-    alert('命令已复制到剪贴板');
+    alert("命令已复制到剪贴板");
   } catch (err) {
-    console.error('复制失败:', err);
+    console.error("复制失败:", err);
   }
 };
 </script>
@@ -66,7 +68,9 @@ const copyCommand = async (command: string) => {
                 <span v-else class="optional-badge">可选</span>
               </div>
               <div class="result-status">
-                <span v-if="item.status === 'success'" class="status-success">通过</span>
+                <span v-if="item.status === 'success'" class="status-success"
+                  >通过</span
+                >
                 <span v-else class="status-failed">失败</span>
               </div>
             </div>
@@ -108,7 +112,8 @@ const copyCommand = async (command: string) => {
 
       <div v-if="hasRequiredFailed" class="warning">
         <div class="warning-text">
-          ⚠️ 必需环境未配置可能会影响应用正常使用，请按照上述提示完成安装后重新检测。
+          ⚠️
+          必需环境未配置可能会影响应用正常使用，请按照上述提示完成安装后重新检测。
         </div>
       </div>
     </div>
@@ -328,7 +333,7 @@ const copyCommand = async (command: string) => {
           }
 
           code {
-            font-family: 'JetBrains Mono', monospace;
+            font-family: "JetBrains Mono", monospace;
             font-size: 12px;
             display: block;
             line-height: 1.5;

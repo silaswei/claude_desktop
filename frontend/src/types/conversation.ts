@@ -1,10 +1,10 @@
 // 对话相关类型定义
 
 // 消息角色
-export type MessageRole = 'user' | 'assistant' | 'system';
+export type MessageRole = "user" | "assistant" | "system";
 
 // 工具调用状态
-export type ToolCallStatus = 'pending' | 'success' | 'failed';
+export type ToolCallStatus = "pending" | "success" | "failed";
 
 // 工具调用
 export interface ToolCall {
@@ -65,4 +65,3 @@ export interface SendMessageRequest {
   attachments?: string[]; // 文件路径列表
   fileReferences?: string[]; // 引用的文件路径
 }
-

@@ -25,7 +25,7 @@ type Manager struct {
 func NewManager(config *models.EnvironmentConfig) *Manager {
 	// 获取缓存路径
 	homeDir, _ := os.UserHomeDir()
-	cachePath := filepath.Join(homeDir, ".claude-terminal", "cache", "env_check.json")
+	cachePath := filepath.Join(homeDir, ".claude-desktop", "cache", "env_check.json")
 
 	m := &Manager{
 		config:    config,

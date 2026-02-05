@@ -1,12 +1,12 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
-import { useEnvStore } from '../stores/env';
-import { useUiStore } from '../stores/ui';
-import LaunchScreen from '../components/launcher/LaunchScreen.vue';
-import FailureGuide from '../components/launcher/FailureGuide.vue';
+import { ref, onMounted } from "vue";
+import { useEnvStore } from "@/stores/env";
+import { useUiStore } from "@/stores/ui";
+import LaunchScreen from "@/components/launcher/LaunchScreen.vue";
+import FailureGuide from "@/components/launcher/FailureGuide.vue";
 
 // 定义 emits
-const emit = defineEmits(['finish']);
+const emit = defineEmits(["finish"]);
 
 const envStore = useEnvStore();
 const uiStore = useUiStore();
@@ -26,26 +26,26 @@ const performDetection = async () => {
 
     if (envStore.allPassed) {
       // 检测通过，更新状态
-      uiStore.setLaunchState('success');
+      uiStore.setLaunchState("success");
     } else {
       // 检测失败，显示引导页
-      uiStore.setLaunchState('failed');
+      uiStore.setLaunchState("failed");
     }
   } catch (error) {
-    console.error('环境检测失败:', error);
-    uiStore.setLaunchState('failed');
+    console.error("环境检测失败:", error);
+    uiStore.setLaunchState("failed");
     detectionComplete.value = true;
   }
 };
 
 // 进入主页面
 const handleEnterMain = () => {
-  emit('finish');
+  emit("finish");
 };
 
 // 重试检测
 const handleRetry = async () => {
-  uiStore.setLaunchState('idle');
+  uiStore.setLaunchState("idle");
   detectionComplete.value = false;
   envStore.reset();
   await performDetection();
@@ -53,7 +53,7 @@ const handleRetry = async () => {
 
 // 跳过检测
 const handleSkip = () => {
-  emit('finish');
+  emit("finish");
 };
 </script>
 
@@ -61,7 +61,11 @@ const handleSkip = () => {
   <div class="launch-view">
     <!-- 启动检测画面 -->
     <LaunchScreen
-      v-if="!detectionComplete || uiStore.launchState === 'detecting' || uiStore.launchState === 'success'"
+      v-if="
+        !detectionComplete ||
+        uiStore.launchState === 'detecting' ||
+        uiStore.launchState === 'success'
+      "
       @enter-main="handleEnterMain"
     />
 

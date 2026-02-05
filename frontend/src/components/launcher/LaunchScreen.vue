@@ -1,29 +1,29 @@
 <script setup lang="ts">
-import { computed } from 'vue';
-import { useEnvStore } from '../../stores/env';
-import type { DetectionResult } from '../../types/env';
+import { computed } from "vue";
+import { useEnvStore } from "@/stores/env";
+import type { DetectionResult } from "@/types/env";
 
 // 定义检测项接口
 interface DetectionItem {
   name: string;
-  status: 'pending' | 'success' | 'failed';
+  status: "pending" | "success" | "failed";
   version: string;
   required: boolean;
-  message?: string;  // 添加消息字段
+  message?: string; // 添加消息字段
 }
 
 // 定义 emit
-const emit = defineEmits(['enter-main']);
+const emit = defineEmits(["enter-main"]);
 
 const envStore = useEnvStore();
 
 // 默认的待检测项目列表
 const defaultDetectionItems: DetectionItem[] = [
-  { name: 'Node.js', status: 'pending', version: '', required: true },
-  { name: 'npm', status: 'pending', version: '', required: true },
-  { name: 'Claude Code CLI', status: 'pending', version: '', required: true },
-  { name: '网络连通性', status: 'pending', version: '', required: true },
-  { name: 'Git', status: 'pending', version: '', required: false },
+  { name: "Node.js", status: "pending", version: "", required: true },
+  { name: "npm", status: "pending", version: "", required: true },
+  { name: "Claude Code CLI", status: "pending", version: "", required: true },
+  { name: "网络连通性", status: "pending", version: "", required: true },
+  { name: "Git", status: "pending", version: "", required: false },
 ];
 
 // 检测项列表
@@ -32,19 +32,21 @@ const detectionItems = computed<DetectionItem[]>(() => {
     return defaultDetectionItems;
   }
 
-  return envStore.envInfo.results.map((r: DetectionResult): DetectionItem => ({
-    name: r.name,
-    status: r.status as 'pending' | 'success' | 'failed',
-    version: r.version || '',
-    required: r.required,
-    message: r.message,  // 映射消息字段
-  }));
+  return envStore.envInfo.results.map(
+    (r: DetectionResult): DetectionItem => ({
+      name: r.name,
+      status: r.status as "pending" | "success" | "failed",
+      version: r.version || "",
+      required: r.required,
+      message: r.message, // 映射消息字段
+    })
+  );
 });
 
 // 检测进度
 const progress = computed(() => {
   const items = detectionItems.value;
-  const completed = items.filter((i) => i.status !== 'pending').length;
+  const completed = items.filter((i) => i.status !== "pending").length;
   return (completed / items.length) * 100;
 });
 
@@ -55,7 +57,7 @@ const showEnterButton = computed(() => {
 
 // 进入主页面
 const handleEnterMain = () => {
-  emit('enter-main');
+  emit("enter-main");
 };
 </script>
 
@@ -101,24 +103,32 @@ const handleEnterMain = () => {
           </div>
 
           <div class="item-status">
-            <span v-if="item.status === 'pending'" class="status-pending">检测中</span>
-            <span v-else-if="item.status === 'success'" class="status-success">通过</span>
+            <span v-if="item.status === 'pending'" class="status-pending"
+              >检测中</span
+            >
+            <span v-else-if="item.status === 'success'" class="status-success"
+              >通过</span
+            >
             <span v-else class="status-failed">失败</span>
           </div>
 
           <div class="item-version">
-            <div v-if="item.status === 'failed' && item.message" class="version-error">
+            <div
+              v-if="item.status === 'failed' && item.message"
+              class="version-error"
+            >
               {{ item.message }}
             </div>
             <div v-else-if="item.version">
               {{ item.version }}
             </div>
-            <div v-else-if="item.status === 'pending'" class="version-detecting">
+            <div
+              v-else-if="item.status === 'pending'"
+              class="version-detecting"
+            >
               检测中...
             </div>
-            <div v-else class="version-unknown">
-              未知
-            </div>
+            <div v-else class="version-unknown">未知</div>
           </div>
         </div>
       </div>
@@ -129,7 +139,9 @@ const handleEnterMain = () => {
         <div class="summary-content">
           <div class="summary-item">
             <span class="summary-label">必需项通过:</span>
-            <span class="summary-value">{{ envStore.requiredPassed }}/{{ envStore.requiredTotal }}</span>
+            <span class="summary-value"
+              >{{ envStore.requiredPassed }}/{{ envStore.requiredTotal }}</span
+            >
           </div>
           <div class="summary-item">
             <span class="summary-label">整体状态:</span>
@@ -138,10 +150,11 @@ const handleEnterMain = () => {
               :class="{
                 'status-good': envStore.allPassed,
                 'status-bad': envStore.hasRequiredFailed,
-                'status-warning': !envStore.allPassed && !envStore.hasRequiredFailed
+                'status-warning':
+                  !envStore.allPassed && !envStore.hasRequiredFailed,
               }"
             >
-              {{ envStore.allPassed ? '全部通过 ✓' : '部分失败 ✗' }}
+              {{ envStore.allPassed ? "全部通过 ✓" : "部分失败 ✗" }}
             </span>
           </div>
         </div>
@@ -353,7 +366,7 @@ const handleEnterMain = () => {
     .item-version {
       font-size: 13px;
       color: #666;
-      font-family: 'JetBrains Mono', monospace;
+      font-family: "JetBrains Mono", monospace;
 
       .version-error {
         color: #f44336;
