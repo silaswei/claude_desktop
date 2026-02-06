@@ -19,6 +19,7 @@ import {
   SystemOpenClaudeTerminal,
 } from "../../wailsjs/go/app/App";
 import { EventsOn, EventsOff } from "../../wailsjs/runtime";
+import ConfirmDialog from "@/components/main/ConfirmDialog.vue";
 
 const workspaceStore = useWorkspaceStore();
 const envStore = useEnvStore();
@@ -38,6 +39,12 @@ const messageInput = ref("");
 const isSending = ref(false);
 const isThinking = ref(false); // 思考状态
 const conversationId = ref("");
+
+// 确认对话框状态
+const showConfirmDialog = ref(false);
+const dialogTitle = ref("确认");
+const dialogMessage = ref("确定要执行此操作吗？");
+const pendingDeletePath = ref("");
 const messages = ref<
   Array<{
     id: string;
@@ -440,20 +447,45 @@ async function handleSelectWorkspace(ws: WorkspaceInfo) {
 async function handleRemoveWorkspace(path: string, event: Event) {
   event.stopPropagation(); // 阻止事件冒泡
 
-  if (confirm("确定要移除这个工作区吗？")) {
-    try {
-      await workspaceStore.removeWorkspace(path);
+  await LogFrontend(`[删除工作区] 用户点击删除按钮, 工作区路径: ${path}`);
 
-      // 如果移除的是当前工作区
-      if (selectedWorkspace.value?.path === path) {
-        selectedWorkspace.value = null;
-        conversationId.value = "";
-        messages.value = [];
-      }
-    } catch (error) {
-      console.error("移除工作区失败:", error);
+  // 保存待删除的路径
+  pendingDeletePath.value = path;
+  dialogTitle.value = "移除工作区";
+  dialogMessage.value = `确定要移除工作区 "${path}" 吗？此操作不会删除实际文件。`;
+  showConfirmDialog.value = true;
+}
+
+// 确认删除工作区
+async function confirmRemoveWorkspace() {
+  const path = pendingDeletePath.value;
+
+  await LogFrontend(`[删除工作区] 用户确认删除, 工作区路径: ${path}`);
+
+  try {
+    await LogFrontend(`[删除工作区] 开始删除工作区: ${path}`);
+    await workspaceStore.removeWorkspace(path);
+    await LogFrontend(`[删除工作区] 工作区删除成功: ${path}`);
+
+    // 如果移除的是当前工作区
+    if (selectedWorkspace.value?.path === path) {
+      await LogFrontend(`[删除工作区] 清空当前工作区状态`);
+      selectedWorkspace.value = null;
+      conversationId.value = "";
+      messages.value = [];
     }
+  } catch (error) {
+    await LogFrontend(`[删除工作区] 删除失败: ${error}`);
   }
+
+  // 清空待删除路径
+  pendingDeletePath.value = "";
+}
+
+// 取消删除工作区
+async function cancelRemoveWorkspace() {
+  await LogFrontend(`[删除工作区] 用户取消删除, 工作区路径: ${pendingDeletePath.value}`);
+  pendingDeletePath.value = "";
 }
 
 // 发送消息
@@ -1193,6 +1225,17 @@ function getFileIcon(file: FileInfo): string {
       </div>
     </div>
   </div>
+
+  <!-- 确认对话框 -->
+  <ConfirmDialog
+    :show="showConfirmDialog"
+    :title="dialogTitle"
+    :message="dialogMessage"
+    confirm-text="删除"
+    cancel-text="取消"
+    @confirm="confirmRemoveWorkspace"
+    @cancel="cancelRemoveWorkspace"
+  />
 </template>
 
 <style lang="scss" scoped>

@@ -4,17 +4,17 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"sync"
 	"time"
+
+	"github.com/wailsapp/wails/v2/pkg/logger"
 )
 
 var (
-	logFile   *os.File
-	logMutex  sync.Mutex
-	logPrefix = ""
+	appLogger logger.Logger
+	logDate  string // 当前日志文件的日期
 )
 
-// InitLogger 初始化日志系统
+// InitLogger 初始化日志系统（使用 Wails Logger）
 func InitLogger() error {
 	// 获取用户主目录
 	homeDir, err := os.UserHomeDir()
@@ -28,88 +28,151 @@ func InitLogger() error {
 		return err
 	}
 
-	// 创建日志文件（按日期命名）
-	dateStr := time.Now().Format("2006-01-02")
-	logPath := filepath.Join(logDir, fmt.Sprintf("app-%s.log", dateStr))
+	// 获取当前日期
+	currentDate := time.Now().Format("2006-01-02")
+	logDate = currentDate
 
-	// 打开日志文件（追加模式）
-	logFile, err = os.OpenFile(logPath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
-	if err != nil {
-		return err
-	}
+	// 默认使用 app.log 作为日志文件名
+	logPath := filepath.Join(logDir, "app.log")
 
-	// 写入日志头部
-	WriteLog("========================================")
-	WriteLog("Claude Desktop 应用启动")
-	WriteLog("日志文件: %s", logPath)
-	WriteLog("========================================\n")
+	// 使用 Wails FileLogger
+	appLogger = logger.NewFileLogger(logPath)
+
+	// 记录启动信息
+	appLogger.Info("========================================")
+	appLogger.Info("Claude Desktop 应用启动")
+	appLogger.Info(fmt.Sprintf("日志文件: %s", logPath))
+	appLogger.Info(fmt.Sprintf("当前日期: %s", currentDate))
+	appLogger.Info("========================================")
 
 	return nil
 }
 
-// CloseLogger 关闭日志系统
-func CloseLogger() {
-	if logFile != nil {
-		logFile.Close()
-	}
-}
-
-// WriteLog 写入日志
-func WriteLog(format string, args ...interface{}) {
-	if logFile == nil {
+// checkAndRotateLog 检查日期变化，必要时轮转日志文件
+func checkAndRotateLog() {
+	if appLogger == nil {
 		return
 	}
 
-	logMutex.Lock()
-	defer logMutex.Unlock()
+	currentDate := time.Now().Format("2006-01-02")
 
-	// 生成时间戳
-	timestamp := time.Now().Format("2006-01-02 15:04:05.000")
+	// 如果日期变化，进行日志轮转
+	if currentDate != logDate {
+		homeDir, _ := os.UserHomeDir()
+		logDir := filepath.Join(homeDir, ".claude-desktop", "logs")
 
-	// 写入日志
-	fmt.Fprintf(logFile, "[%s] %s%s\n",
-		timestamp,
-		logPrefix,
-		fmt.Sprintf(format, args...),
-	)
+		// 关闭当前日志（通过设置为 nil，将在重新初始化时创建新实例）
+		appLogger.Info(fmt.Sprintf("日期变化，准备轮转日志: %s -> %s", logDate, currentDate))
 
-	// 同时输出到控制台
-	fmt.Printf("[%s] %s%s\n",
-		timestamp,
-		logPrefix,
-		fmt.Sprintf(format, args...),
-	)
+		// 重命名当前日志文件：app.log -> app-YYYY-MM-DD.log
+		oldLogPath := filepath.Join(logDir, "app.log")
+		newLogPath := filepath.Join(logDir, fmt.Sprintf("app-%s.log", logDate))
+
+		// 先关闭旧日志
+		appLogger = nil
+
+		// 重命名日志文件
+		if err := os.Rename(oldLogPath, newLogPath); err != nil {
+			// 如果重命名失败（可能文件不存在），创建一个新的 appLogger 记录错误
+			appLogger = logger.NewFileLogger(oldLogPath)
+			appLogger.Error(fmt.Sprintf("重命名日志文件失败: %v", err))
+			return
+		}
+
+		// 重新初始化日志系统（会创建新的 app.log）
+		if err := InitLogger(); err != nil {
+			fmt.Printf("重新初始化日志系统失败: %v\n", err)
+			return
+		}
+
+		// 记录日志轮转信息
+		appLogger.Info(fmt.Sprintf("日志轮转完成: %s -> %s", oldLogPath, newLogPath))
+	}
 }
 
-// SetPrefix 设置日志前缀
-func SetPrefix(prefix string) {
-	logPrefix = "[" + prefix + "] "
+// CloseLogger 关闭日志系统
+func CloseLogger() {
+	if appLogger != nil {
+		appLogger.Info("Claude Desktop 应用关闭")
+	}
 }
 
 // Info 写入信息日志
 func Info(format string, args ...interface{}) {
-	SetPrefix("INFO")
-	WriteLog(format, args...)
-	logPrefix = ""
+	checkAndRotateLog()
+	if appLogger != nil {
+		message := format
+		if len(args) > 0 {
+			message = fmt.Sprintf(format, args...)
+		}
+		appLogger.Info(message)
+	}
 }
 
 // Error 写入错误日志
 func Error(format string, args ...interface{}) {
-	SetPrefix("ERROR")
-	WriteLog(format, args...)
-	logPrefix = ""
+	checkAndRotateLog()
+	if appLogger != nil {
+		message := format
+		if len(args) > 0 {
+			message = fmt.Sprintf(format, args...)
+		}
+		appLogger.Error(message)
+	}
 }
 
 // Debug 写入调试日志
 func Debug(format string, args ...interface{}) {
-	SetPrefix("DEBUG")
-	WriteLog(format, args...)
-	logPrefix = ""
+	checkAndRotateLog()
+	if appLogger != nil {
+		message := format
+		if len(args) > 0 {
+			message = fmt.Sprintf(format, args...)
+		}
+		appLogger.Debug(message)
+	}
+}
+
+// Print 写入普通日志
+func Print(format string, args ...interface{}) {
+	checkAndRotateLog()
+	if appLogger != nil {
+		message := format
+		if len(args) > 0 {
+			message = fmt.Sprintf(format, args...)
+		}
+		appLogger.Print(message)
+	}
+}
+
+// Warning 写入警告日志
+func Warning(format string, args ...interface{}) {
+	checkAndRotateLog()
+	if appLogger != nil {
+		message := format
+		if len(args) > 0 {
+			message = fmt.Sprintf(format, args...)
+		}
+		appLogger.Warning(message)
+	}
+}
+
+// Trace 写入追踪日志
+func Trace(format string, args ...interface{}) {
+	checkAndRotateLog()
+	if appLogger != nil {
+		message := format
+		if len(args) > 0 {
+			message = fmt.Sprintf(format, args...)
+		}
+		appLogger.Trace(message)
+	}
 }
 
 // FrontendLog 前端日志（通过后端调用）
 func FrontendLog(message string) {
-	SetPrefix("FRONTEND")
-	WriteLog("%s", message)
-	logPrefix = ""
+	checkAndRotateLog()
+	if appLogger != nil {
+		appLogger.Info(fmt.Sprintf("[FRONTEND] %s", message))
+	}
 }

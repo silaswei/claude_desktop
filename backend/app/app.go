@@ -254,7 +254,9 @@ func (a *App) WorkspaceSelect(path string) error {
 
 // WorkspaceRemove 移除工作区
 func (a *App) WorkspaceRemove(path string) {
+	logger.Debug("WorkspaceRemove API 调用, path: %s", path)
 	a.workspaceManager.RemoveWorkspace(path)
+	logger.Debug("WorkspaceRemove API 完成")
 }
 
 // WorkspaceRenameFile 重命名文件或目录

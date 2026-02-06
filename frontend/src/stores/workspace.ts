@@ -13,6 +13,7 @@ import {
   WorkspaceDeleteFile,
   WorkspaceCreateFile,
   WorkspaceGetInfo,
+  LogFrontend,
 } from "../../wailsjs/go/app/App";
 
 export const useWorkspaceStore = defineStore("workspace", () => {
@@ -135,22 +136,33 @@ export const useWorkspaceStore = defineStore("workspace", () => {
    * 移除工作区
    */
   async function removeWorkspace(path: string): Promise<void> {
+    await LogFrontend(`[WorkspaceStore] removeWorkspace 开始, path: ${path}`);
+    await LogFrontend(`[WorkspaceStore] 当前工作区列表: ${JSON.stringify(workspaces.value.map(ws => ({ path: ws.path, name: ws.name })))}`);
+
     loading.value = true;
     error.value = null;
 
     try {
+      await LogFrontend(`[WorkspaceStore] 调用后端 WorkspaceRemove API`);
       await WorkspaceRemove(path);
+      await LogFrontend(`[WorkspaceStore] WorkspaceRemove API 调用成功`);
 
-      // 从列表中移除
-      workspaces.value = workspaces.value.filter((ws) => ws.path !== path);
+      // 重新加载工作区列表以确保同步
+      await LogFrontend(`[WorkspaceStore] 重新加载工作区列表`);
+      await loadWorkspaces();
+      await LogFrontend(`[WorkspaceStore] 工作区列表已更新: ${JSON.stringify(workspaces.value.map(ws => ({ path: ws.path, name: ws.name })))}`);
 
       // 如果移除的是当前工作区，清空当前状态
       if (currentPath.value === path) {
+        await LogFrontend(`[WorkspaceStore] 移除的是当前工作区，清空状态`);
         currentPath.value = "";
         workspaceInfo.value = null;
         files.value = [];
       }
+
+      await LogFrontend(`[WorkspaceStore] removeWorkspace 完成`);
     } catch (err) {
+      await LogFrontend(`[WorkspaceStore] removeWorkspace 出错: ${err}`);
       error.value = err instanceof Error ? err.message : String(err);
       throw err;
     } finally {

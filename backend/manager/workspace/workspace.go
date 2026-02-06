@@ -12,6 +12,7 @@ import (
 	"sync"
 	"time"
 
+	"claude_desktop/backend/logger"
 	"claude_desktop/backend/models"
 )
 
@@ -214,25 +215,34 @@ func (m *Manager) SelectWorkspace(path string) error {
 
 // RemoveWorkspace 移除工作区
 func (m *Manager) RemoveWorkspace(path string) {
+	logger.Debug("RemoveWorkspace 开始, path: %s", path)
+	logger.Debug("当前工作区列表长度: %d", len(m.workspaces))
+
 	m.mu.Lock()
 
 	for i, ws := range m.workspaces {
 		if ws.Path == path {
+			logger.Debug("找到要删除的工作区: %s (索引: %d)", ws.Name, i)
 			// 从列表中移除
 			m.workspaces = append(m.workspaces[:i], m.workspaces[i+1:]...)
+			logger.Debug("工作区已从列表移除, 剩余: %d", len(m.workspaces))
 
 			// 如果移除的是当前工作区，清空当前路径
 			if m.currentPath == path {
+				logger.Debug("移除的是当前工作区, 清空 currentPath")
 				m.currentPath = ""
 			}
 			m.mu.Unlock()
 
 			// 异步保存，避免阻塞
+			logger.Debug("开始异步保存到存储")
 			go m.saveToStorage()
+			logger.Debug("RemoveWorkspace 完成")
 			return
 		}
 	}
 
+	logger.Debug("未找到要删除的工作区: %s", path)
 	m.mu.Unlock()
 }
 
