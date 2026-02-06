@@ -26,13 +26,11 @@
 
 <div align="center">
 
-![主界面](../docs/screenshot-main.png)
-*主界面 - 工作区和对话管理*
-
-![环境检测](../docs/screenshot-env.png)
-*环境检测页面*
+![Logo](docs/logo.png)
 
 </div>
+
+> 截图准备中... 更多界面展示请参考 [GitHub Issues](https://github.com/yourusername/claude_desktop/issues)
 
 ## 🛠️ 技术栈
 
@@ -180,8 +178,8 @@ claude_desktop/
 ```
 
 详细架构设计请参阅：
-- [系统设计文档](../SYSTEM_DESIGN.md)
-- [项目开发文档](../PROJECT_DOCUMENTATION.md)
+- [系统设计文档](SYSTEM_DESIGN.md)
+- [项目开发文档](PROJECT_DOCUMENTATION.md)
 
 ## 🔧 配置
 
@@ -255,7 +253,7 @@ wails dev
 
 ## 📄 许可证
 
-MIT License - 详见 [LICENSE](../LICENSE) 文件
+MIT License - 详见 [LICENSE](LICENSE) 文件
 
 ## 🙏 致谢
 
