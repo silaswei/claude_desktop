@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"claude_desktop/backend/detector"
+	"claude_desktop/backend/logger"
 	"claude_desktop/backend/manager/conversation"
 	"claude_desktop/backend/manager/workspace"
 	"claude_desktop/backend/models"
@@ -60,6 +61,12 @@ func (a *App) Startup(ctx context.Context) {
 	// Perform your setup here
 	// 在这里执行初始化设置
 	a.ctx = ctx
+
+	// 初始化日志系统
+	if err := logger.InitLogger(); err != nil {
+		fmt.Printf("初始化日志系统失败: %v\n", err)
+	}
+	logger.Info("应用启动")
 
 	// 调整窗口大小为屏幕的 3/4
 	a.resizeWindowToThreeQuarters()
@@ -115,9 +122,16 @@ func (a *App) BeforeClose(ctx context.Context) (prevent bool) {
 func (a *App) Shutdown(ctx context.Context) {
 	// Perform your teardown here
 	// 在此处做一些资源释放的操作
+	logger.Info("应用关闭")
+	logger.CloseLogger()
 }
 
 // ==================== 环境检测相关 API ====================
+
+// LogFrontend 前端日志接口
+func (a *App) LogFrontend(message string) {
+	logger.FrontendLog(message)
+}
 
 // EnvDetectAll 执行所有环境检测
 func (a *App) EnvDetectAll() (*models.EnvironmentInfo, error) {
@@ -316,6 +330,26 @@ func (a *App) SystemOpenTerminal(relativePath string) error {
 	return cmd.Run()
 }
 
+// SystemOpenClaudeTerminal 在项目目录中打开 Claude 终端
+func (a *App) SystemOpenClaudeTerminal() error {
+	projectPath := a.workspaceManager.GetCurrent()
+	if projectPath == "" {
+		return fmt.Errorf("没有打开的工作区")
+	}
+
+	// 创建一个临时的 AppleScript 来在 Terminal 中执行命令
+	script := fmt.Sprintf(`
+		tell application "Terminal"
+		activate
+		do script "cd %s && claude"
+	end tell
+`, projectPath)
+
+	// 执行 AppleScript
+	cmd := exec.Command("osascript", "-e", script)
+	return cmd.Run()
+}
+
 // SystemRevealInFinder 在Finder中显示文件
 func (a *App) SystemRevealInFinder(relativePath string) error {
 	fullPath, err := a.workspaceManager.GetFullPath(relativePath)
@@ -378,25 +412,34 @@ func (a *App) ConversationSendWithCallback(convID, content string, onChunk func(
 
 // ConversationSendWithEvents 发送消息并通过 Wails Events 推送响应
 func (a *App) ConversationSendWithEvents(convID, content string) error {
-	fmt.Printf("发送消息到会话 %s: %s\n", convID, content)
+	logger.Info("=== ConversationSendWithEvents 开始 ===")
+	logger.Info("会话ID: %s", convID)
+	logger.Info("消息内容: %s", content)
 
 	// 发送思考开始事件
+	logger.Info("发送 claude:thinking 事件")
 	runtime.EventsEmit(a.ctx, "claude:thinking", map[string]interface{}{
 		"convID": convID,
 	})
 
 	// 用于跟踪是否有实际内容
 	hasContent := false
+	chunkCount := 0
 
 	// 使用 SendMessageWithCallback 并在回调中发送事件
 	_, err := a.convManager.SendMessageWithCallback(convID, content, func(chunk string) {
+		chunkCount++
+		logger.Debug("收到 chunk #%d, 长度: %d, 内容: %q", chunkCount, len(chunk), chunk)
+
 		// 检查是否有实际内容
 		trimmedChunk := strings.TrimSpace(chunk)
 		if trimmedChunk != "" {
 			hasContent = true
+			logger.Debug("  -> 有实际内容，标记 hasContent=true")
 		}
 
 		// 通过 Wails Events 发送响应片段到前端
+		logger.Debug("  -> 发送 claude:response 事件")
 		runtime.EventsEmit(a.ctx, "claude:response", map[string]interface{}{
 			"content": chunk,
 			"convID":  convID,
@@ -405,20 +448,21 @@ func (a *App) ConversationSendWithEvents(convID, content string) error {
 
 	if err != nil {
 		// 发送错误事件
+		logger.Error("发送消息出错: %v", err)
 		runtime.EventsEmit(a.ctx, "claude:error", map[string]interface{}{
 			"convID": convID,
 			"error":  err.Error(),
 		})
-		fmt.Printf("发送消息失败: %v\n", err)
 		return err
 	}
 
 	// 只有在有内容或成功完成时才发送完成事件
+	logger.Info("发送 claude:complete 事件, hasContent=%v, 总共收到 %d 个 chunk", hasContent, chunkCount)
 	runtime.EventsEmit(a.ctx, "claude:complete", map[string]interface{}{
 		"convID":     convID,
 		"hasContent": hasContent,
 	})
 
-	fmt.Printf("发送消息成功, hasContent=%v\n", hasContent)
+	logger.Info("=== ConversationSendWithEvents 结束 ===\n")
 	return nil
 }

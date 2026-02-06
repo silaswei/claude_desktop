@@ -15,8 +15,10 @@ import {
   SystemOpenFile,
   SystemOpenTerminal,
   SystemRevealInFinder,
+  LogFrontend,
+  SystemOpenClaudeTerminal,
 } from "../../wailsjs/go/app/App";
-import { EventsOn, EventsOff } from "../../wailsjs/runtime/runtime";
+import { EventsOn, EventsOff } from "../../wailsjs/runtime";
 
 const workspaceStore = useWorkspaceStore();
 const envStore = useEnvStore();
@@ -45,15 +47,13 @@ const messages = ref<
   }>
 >([]);
 
-// 流式输出优化：批量更新
+// 流式输出：当前正在更新的消息对象
 let streamingMessage: {
   id: string;
   role: "user" | "assistant";
   content: string;
   timestamp: string;
 } | null = null;
-let streamingBuffer = "";
-let streamingTimer: number | null = null;
 
 // 思考中消息
 let thinkingMessageId: string | null = null;
@@ -145,10 +145,12 @@ onMounted(async () => {
     }
 
     // 监听 Claude 响应事件
+    LogFrontend("注册事件监听器...");
     EventsOn("claude:response", handleClaudeResponse);
     EventsOn("claude:thinking", handleClaudeThinking);
     EventsOn("claude:complete", handleClaudeComplete);
     EventsOn("claude:error", handleClaudeError);
+    LogFrontend("事件监听器注册完成");
 
     // 点击页面其他地方关闭右键菜单
     window.addEventListener("click", closeContextMenu);
@@ -157,32 +159,14 @@ onMounted(async () => {
   }
 });
 
-// 组件卸载时清理事件监听
+// 组件卸载时清理
 onUnmounted(() => {
   EventsOff("claude:response");
   EventsOff("claude:thinking");
   EventsOff("claude:complete");
   EventsOff("claude:error");
+  window.removeEventListener("click", closeContextMenu);
 });
-
-// 刷新流式输出显示
-function flushStreamingMessage() {
-  if (streamingMessage && streamingBuffer) {
-    streamingMessage.content += streamingBuffer;
-    streamingBuffer = "";
-
-    // 检查是否在底部，如果是则滚动
-    if (messageListRef.value && isNearBottom()) {
-      nextTick(() => {
-        scrollToBottom();
-      });
-    }
-  }
-  if (streamingTimer !== null) {
-    clearTimeout(streamingTimer);
-    streamingTimer = null;
-  }
-}
 
 // 处理 Claude 响应（真正的流式输出）
 function handleClaudeResponse(data: any) {
@@ -196,18 +180,8 @@ function handleClaudeResponse(data: any) {
 
   if (!content) return;
 
-  // 只有内容不为空（去除空白后）才处理
-  const trimmedContent = content.trim();
-  if (!trimmedContent) {
-    console.log("收到空白内容，忽略:", JSON.stringify(data));
-    return;
-  }
-
-  console.log("收到有效内容:", trimmedContent.substring(0, 50));
-
-  // 移除思考中消息（只在有实际内容时）
+  // 移除思考中消息（第一次收到任何内容时）
   if (thinkingMessageId) {
-    console.log("移除思考中消息");
     const thinkingIndex = messages.value.findIndex(
       (m) => m.id === thinkingMessageId
     );
@@ -215,6 +189,7 @@ function handleClaudeResponse(data: any) {
       messages.value.splice(thinkingIndex, 1);
     }
     thinkingMessageId = null;
+    isThinking.value = false;
   }
 
   // 查找或创建流式消息对象
@@ -233,14 +208,22 @@ function handleClaudeResponse(data: any) {
     }
   }
 
-  // 立即追加内容到缓冲区
-  streamingBuffer += content;
+  // 立即追加内容并创建新对象替换
+  streamingMessage.content += content;
 
-  // 使用防抖定时器批量更新显示（减少 Vue 更新频率，但保持流畅）
-  if (streamingTimer === null) {
-    streamingTimer = window.setTimeout(() => {
-      flushStreamingMessage();
-    }, 16); // 约 60fps
+  // 创建新对象来强制 Vue 重新渲染（解构创建新对象）
+  const newMessage = { ...streamingMessage };
+  const index = messages.value.findIndex(m => m.id === streamingMessage!.id);
+  if (index !== -1) {
+    messages.value.splice(index, 1, newMessage);
+    streamingMessage = newMessage; // 更新引用
+  }
+
+  // 如果在底部，就滚动
+  if (isNearBottom()) {
+    nextTick(() => {
+      scrollToBottom();
+    });
   }
 }
 
@@ -256,24 +239,19 @@ function handleClaudeThinking() {
     content: "思考中",
     timestamp: new Date().toISOString(),
   });
+
+  // 如果当前在底部，思考中消息显示后滚动到底部
+  if (isNearBottom()) {
+    nextTick(() => {
+      scrollToBottom();
+    });
+  }
 }
 
 // 处理 Claude 完成事件
 function handleClaudeComplete(data: any) {
-  console.log("收到完成事件:", data);
-
-  // 刷新缓冲区
-  flushStreamingMessage();
-
-  // 检查是否有实际内容
-  const hasContent = data?.hasContent ?? true; // 默认为 true 以兼容旧版本
-
-  // 只有在已经收到内容的情况下才设置 isThinking = false
-  // 如果思考中消息还在，说明没有收到内容，保持思考状态
-  if (thinkingMessageId && !hasContent) {
-    // 没有收到任何响应，移除思考中消息并显示错误
-    console.log("没有收到任何响应内容");
-
+  // 如果思考动画还在，说明没有收到任何实际内容
+  if (thinkingMessageId) {
     const thinkingIndex = messages.value.findIndex(
       (m) => m.id === thinkingMessageId
     );
@@ -282,27 +260,21 @@ function handleClaudeComplete(data: any) {
     }
     thinkingMessageId = null;
 
-    // 添加错误提示
     messages.value.push({
       id: `msg-error-${Date.now()}`,
       role: "assistant" as const,
       content: "抱歉，没有收到任何响应。请检查 Claude CLI 是否正确配置。",
       timestamp: new Date().toISOString(),
     });
-
-    // 设置 isThinking = false，允许重新发送
-    isThinking.value = false;
-  } else if (!thinkingMessageId) {
-    // 思考中消息已经被移除（说明收到了内容），正常结束
-    isThinking.value = false;
   }
-  // 如果 thinkingMessageId 还在，保持 isThinking = true，继续等待内容
+
+  isThinking.value = false;
+  streamingMessage = null;
 }
 
 // 处理 Claude 错误事件
 function handleClaudeError(data: any) {
   console.error("收到错误事件:", data);
-
   const errorMsg = data?.error || "未知错误";
 
   // 移除思考中消息
@@ -325,6 +297,14 @@ function handleClaudeError(data: any) {
   });
 
   isThinking.value = false;
+}
+
+// 停止思考（占位函数，实际需要后端支持）
+async function handleStopThinking() {
+  // TODO: 实现停止功能，需要后端添加对应的 API
+  isThinking.value = false;
+  isSending.value = false;
+  streamingMessage = null;
 }
 
 // 加载工作区的历史对话
@@ -365,8 +345,9 @@ async function loadWorkspaceConversation(projectPath: string) {
       // 确保活跃会话ID已设置
       await WorkspaceSetActiveConversation(conv.id);
 
-      // 加载历史对话后滚动到底部
+      // 加载历史对话后滚动到底部（等待 DOM 更新）
       await nextTick();
+      await nextTick(); // 双重 nextTick 确保 DOM 完全渲染
       scrollToBottom();
     } else {
       // 没有历史对话，清空消息
@@ -388,26 +369,13 @@ function scrollToBottom() {
   }
 }
 
-// 检查是否在底部（100px以内）
+// 检查是否在底部（50px以内）
 function isNearBottom(): boolean {
   if (!messageListRef.value) return false;
   const el = messageListRef.value;
-  const threshold = 100;
+  const threshold = 50;
   return el.scrollHeight - el.scrollTop - el.clientHeight < threshold;
 }
-
-// 监听消息变化，自动滚动到底部
-watch(
-  () => messages.value,
-  async () => {
-    // 检查是否在底部，如果是则滚动
-    if (isNearBottom()) {
-      await nextTick();
-      scrollToBottom();
-    }
-  },
-  { deep: true }
-);
 
 // 打开文件夹
 async function handleOpenFolder() {
@@ -430,6 +398,21 @@ async function handleOpenFolder() {
   } catch (error) {
     console.error("打开文件夹失败:", error);
     alert("打开文件夹失败: " + error);
+  }
+}
+
+// 打开 Claude 终端
+async function handleOpenClaudeTerminal() {
+  if (!selectedWorkspace.value) {
+    alert("请先选择工作区");
+    return;
+  }
+
+  try {
+    await SystemOpenClaudeTerminal();
+  } catch (error) {
+    console.error("打开 Claude 终端失败:", error);
+    alert("打开 Claude 终端失败: " + error);
   }
 }
 
@@ -493,14 +476,6 @@ async function handleSendMessage() {
   isSending.value = true;
 
   try {
-    const userMessage = {
-      id: `msg-${Date.now()}`,
-      role: "user" as const,
-      content: messageContent,
-      timestamp: new Date().toISOString(),
-    };
-    messages.value.push(userMessage);
-
     // 创建会话（如果还没有）
     if (!conversationId.value) {
       const conv = await ConversationCreate(
@@ -510,33 +485,44 @@ async function handleSendMessage() {
       conversationId.value = conv.id;
       // 保存活跃会话ID到工作区
       await WorkspaceSetActiveConversation(conv.id);
-      console.log("创建新会话并保存ID:", conv.id);
+    }
+
+    // 立即添加用户消息到界面（立即显示）
+    const userMessage = {
+      id: `msg-${Date.now()}`,
+      role: "user" as const,
+      content: messageContent,
+      timestamp: new Date().toISOString(),
+    };
+    messages.value.push(userMessage);
+
+    // 如果在底部，立即滚动
+    if (isNearBottom()) {
+      nextTick(() => {
+        scrollToBottom();
+      });
     }
 
     // 发送到后端（使用事件流式接收响应）
     await ConversationSendWithEvents(conversationId.value, messageContent);
+
+    // 发送完成后重新加载对话以确保同步
+    await loadWorkspaceConversation(selectedWorkspace.value.path);
+
+    // 重新加载后滚动到底部
+    nextTick(() => {
+      scrollToBottom();
+    });
   } catch (error) {
     console.error("发送消息失败:", error);
     alert("发送消息失败: " + error);
   } finally {
-    // 刷新缓冲区并重置流式状态
-    flushStreamingMessage();
+    // 重置流式状态
     streamingMessage = null;
-    streamingBuffer = "";
-    streamingTimer = null;
 
     isSending.value = false;
     isThinking.value = false;
   }
-}
-
-// 停止思考（占位函数，实际需要后端支持）
-async function handleStopThinking() {
-  // TODO: 实现停止功能，需要后端添加对应的 API
-  isThinking.value = false;
-  isSending.value = false;
-  // 刷新缓冲区
-  flushStreamingMessage();
 }
 
 // 切换侧边栏显示
@@ -915,6 +901,16 @@ function getFileIcon(file: FileInfo): string {
         >
           📁 打开文件夹
         </button>
+
+        <!-- 打开 Claude 终端按钮 -->
+        <button
+          v-if="selectedWorkspace"
+          class="workspace-btn"
+          @click="handleOpenClaudeTerminal"
+          title="在项目目录中打开 Claude 终端"
+        >
+          💬 打开 Claude
+        </button>
       </div>
     </div>
 
@@ -971,7 +967,7 @@ function getFileIcon(file: FileInfo): string {
               </div>
               <button
                 class="remove-btn"
-                @click="(e) => handleRemoveWorkspace(ws.path, e)"
+                @click="(e: MouseEvent) => handleRemoveWorkspace(ws.path, e)"
                 title="移除工作区"
               >
                 ✕

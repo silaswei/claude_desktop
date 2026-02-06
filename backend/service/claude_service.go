@@ -6,6 +6,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"os"
 	"os/exec"
 	"strings"
 	"sync"
@@ -50,6 +51,9 @@ func (s *ClaudeService) SendRequest(ctx context.Context, messages []conversation
 
 	// 设置工作目录为项目路径
 	cmd.Dir = projectPath
+
+	// 继承当前进程的环境变量
+	cmd.Env = os.Environ()
 
 	// 创建标准输出和错误管道
 	stdout, err := cmd.StdoutPipe()
@@ -116,6 +120,9 @@ func (s *ClaudeService) SendMessage(ctx context.Context, content string, onChunk
 	// 设置工作目录为项目路径
 	cmd.Dir = projectPath
 
+	// 继承当前进程的环境变量
+	cmd.Env = os.Environ()
+
 	// 捕获输出
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
@@ -149,19 +156,40 @@ type StreamEvent struct {
 }
 
 // StreamMessage 流式发送消息
-func (s *ClaudeService) StreamMessage(ctx context.Context, content string, onChunk func(string)) error {
+func (s *ClaudeService) StreamMessage(ctx context.Context, messages []conversation.Message, onChunk func(string)) error {
 	s.mu.Lock()
 	projectPath := s.projectPath
 	s.mu.Unlock()
 
+	// 构建对话历史作为输入
+	var inputContent strings.Builder
+	for _, msg := range messages {
+		role := msg.Role
+		content := msg.Content
+
+		// 格式化为 Claude 能理解的格式
+		if role == "user" {
+			inputContent.WriteString(fmt.Sprintf("User: %s\n", content))
+		} else if role == "assistant" {
+			inputContent.WriteString(fmt.Sprintf("Assistant: %s\n", content))
+		}
+	}
+
+	// 添加当前用户消息提示
+	inputContent.WriteString("Assistant:")
+
 	// 构建 claude 命令（使用 --print 非交互模式 + 流式 JSON 输出）
-	cmd := exec.CommandContext(ctx, "claude", "--print", content,
+	// 传入完整的对话历史
+	cmd := exec.CommandContext(ctx, "claude", "--print", inputContent.String(),
 		"--output-format", "stream-json",
 		"--verbose",
 		"--include-partial-messages")
 
 	// 设置工作目录为项目路径
 	cmd.Dir = projectPath
+
+	// 继承当前进程的环境变量，确保 Claude CLI 能访问用户环境
+	cmd.Env = os.Environ()
 
 	// 创建管道
 	stdout, err := cmd.StdoutPipe()
@@ -245,6 +273,9 @@ func (s *ClaudeService) StreamMessage(ctx context.Context, content string, onChu
 // ValidateEnvironment 验证 Claude 环境是否可用
 func (s *ClaudeService) ValidateEnvironment(ctx context.Context) error {
 	cmd := exec.CommandContext(ctx, "claude", "--version")
+	// 继承环境变量
+	cmd.Env = os.Environ()
+
 	output, err := cmd.Output()
 	if err != nil {
 		return fmt.Errorf("claude command not available: %w", err)
@@ -338,9 +369,9 @@ func (m *ConversationManager) SendMessage(convID, content string) (*conversation
 	// 设置项目路径
 	m.claude.SetProjectPath(conv.ProjectPath)
 
-	// 发送到 Claude 并获取响应
+	// 发送到 Claude 并获取响应（传入完整对话历史）
 	var responseBuilder strings.Builder
-	err = m.claude.StreamMessage(context.Background(), content, func(chunk string) {
+	err = m.claude.StreamMessage(context.Background(), conv.Messages, func(chunk string) {
 		responseBuilder.WriteString(chunk)
 	})
 	if err != nil {
@@ -382,9 +413,9 @@ func (m *ConversationManager) SendMessageWithCallback(
 	// 设置项目路径
 	m.claude.SetProjectPath(conv.ProjectPath)
 
-	// 发送到 Claude 并流式接收响应
+	// 发送到 Claude 并流式接收响应（传入完整对话历史）
 	var responseBuilder strings.Builder
-	err = m.claude.StreamMessage(context.Background(), content, func(chunk string) {
+	err = m.claude.StreamMessage(context.Background(), conv.Messages, func(chunk string) {
 		responseBuilder.WriteString(chunk)
 		if onChunk != nil {
 			onChunk(chunk)
