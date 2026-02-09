@@ -3,6 +3,7 @@ package detector
 import (
 	"context"
 	"fmt"
+	"os"
 	"os/exec"
 	"runtime"
 	"strings"
@@ -26,20 +27,68 @@ func NewClaudeDetector(minVersion string) *ClaudeDetector {
 
 // Detect 执行检测
 func (d *ClaudeDetector) Detect(ctx context.Context) (*models.DetectionResult, error) {
-	// 检查 claude 命令是否存在
-	cmd := exec.CommandContext(ctx, "claude", "--version")
-	output, err := cmd.Output()
-
+	// 查找 claude 命令的路径
+	path, err := exec.LookPath("claude")
 	if err != nil {
-		// Claude Code CLI 未安装
+		// Claude Code CLI 未找到
+		fmt.Printf("DEBUG: Claude command not found in PATH: %v\n", err)
+		fmt.Printf("DEBUG: Current PATH: %s\n", os.Getenv("PATH"))
+
+		// 尝试检查常见安装路径
+		possiblePaths := []string{
+			"/home/luckvm/.npm-global/bin/claude",
+			"/usr/local/bin/claude",
+			"/usr/bin/claude",
+		}
+
+		for _, claudePath := range possiblePaths {
+			if _, statErr := os.Stat(claudePath); statErr == nil {
+				fmt.Printf("DEBUG: Found Claude at path: %s\n", claudePath)
+				// 使用完整路径执行命令
+				cmd := exec.CommandContext(ctx, claudePath, "--version")
+				output, cmdErr := cmd.Output()
+				if cmdErr != nil {
+					fmt.Printf("DEBUG: Failed to execute Claude at %s: %v\n", claudePath, cmdErr)
+					continue
+				}
+				fmt.Printf("DEBUG: Successfully executed Claude at %s\n", claudePath)
+				return d.parseVersion(string(output))
+			}
+		}
+
 		return d.CreateFailedResult(
 			"未检测到 Claude Code CLI",
 			d.getFixCommand(),
 		), nil
 	}
 
+	fmt.Printf("DEBUG: Found Claude at: %s\n", path)
+
+	// 检查 claude 命令是否存在
+	cmd := exec.CommandContext(ctx, "claude", "--version")
+	output, err := cmd.Output()
+
+	if err != nil {
+		// Claude Code CLI 未安装
+		fmt.Printf("DEBUG: Claude command failed: %v\n", err)
+		fmt.Printf("DEBUG: Error type: %T\n", err)
+		if exitErr, ok := err.(*exec.ExitError); ok {
+			fmt.Printf("DEBUG: Exit code: %d\n", exitErr.ExitCode())
+			fmt.Printf("DEBUG: Stderr: %s\n", string(exitErr.Stderr))
+		}
+		return d.CreateFailedResult(
+			"未检测到 Claude Code CLI",
+			d.getFixCommand(),
+		), nil
+	}
+
+	return d.parseVersion(string(output))
+}
+
+// parseVersion 解析版本号并返回结果
+func (d *ClaudeDetector) parseVersion(output string) (*models.DetectionResult, error) {
 	// 获取版本号
-	rawOutput := strings.TrimSpace(string(output))
+	rawOutput := strings.TrimSpace(output)
 	fmt.Printf("DEBUG: Raw claude --version output: [%s]\n", rawOutput)
 
 	// 解析版本号，支持多种格式：
@@ -75,7 +124,7 @@ func (d *ClaudeDetector) Detect(ctx context.Context) (*models.DetectionResult, e
 		// 添加调试信息
 		fmt.Printf("DEBUG: Claude version check failed - current: %s, min: %s\n", versionStr, d.minVersion)
 		return d.CreateFailedResult(
-			fmt.Sprintf("Claude Code CLI 版本过低2: 当前 %s，要求 %s 或更高", versionStr, d.minVersion),
+			fmt.Sprintf("Claude Code CLI 版本过低: 当前 %s，要求 %s 或更高", versionStr, d.minVersion),
 			d.getUpgradeCommand(),
 		), nil
 	}

@@ -187,7 +187,7 @@ const handleEnterMain = () => {
 .content {
   background: rgba(255, 255, 255, 0.98);
   border-radius: 20px;
-  padding: 50px;
+  padding: 40px;
   max-width: 1200px;
   width: 100%;
   height: calc(100% - 40px);
@@ -200,41 +200,41 @@ const handleEnterMain = () => {
 
 .logo {
   text-align: center;
-  margin-bottom: 25px;
+  margin-bottom: 15px;
 
   .logo-icon {
-    font-size: 50px;
-    margin-bottom: 10px;
+    font-size: 40px;
+    margin-bottom: 8px;
   }
 
   .logo-text {
-    font-size: 26px;
+    font-size: 22px;
     font-weight: bold;
     color: #333;
-    margin-bottom: 5px;
+    margin-bottom: 4px;
   }
 
   .logo-subtitle {
-    font-size: 14px;
+    font-size: 13px;
     color: #666;
   }
 }
 
 .progress-section {
-  margin-bottom: 25px;
+  margin-bottom: 15px;
 
   .progress-text {
-    font-size: 14px;
+    font-size: 12px;
     color: #666;
-    margin-bottom: 8px;
+    margin-bottom: 5px;
     text-align: center;
   }
 
   .progress-bar {
     width: 100%;
-    height: 6px;
+    height: 4px;
     background: #e0e0e0;
-    border-radius: 3px;
+    border-radius: 2px;
     overflow: hidden;
 
     .progress-fill {
@@ -246,26 +246,33 @@ const handleEnterMain = () => {
 }
 
 .detection-list {
-  flex: 1;
+  margin-bottom: 12px;
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 8px;
+  max-height: calc(100vh - 500px);
   overflow-y: auto;
-  margin-bottom: 20px;
-  padding-right: 5px;
+  overflow-x: visible;
+  flex: 1;
+  min-height: 0;
+  padding-right: 8px;
 
+  /* 自定义滚动条样式 */
   &::-webkit-scrollbar {
-    width: 8px;
+    width: 6px;
   }
 
   &::-webkit-scrollbar-track {
     background: #f1f1f1;
-    border-radius: 4px;
+    border-radius: 3px;
   }
 
   &::-webkit-scrollbar-thumb {
-    background: #888;
-    border-radius: 4px;
+    background: #c1c1c1;
+    border-radius: 3px;
 
     &:hover {
-      background: #555;
+      background: #a8a8a8;
     }
   }
 
@@ -273,22 +280,19 @@ const handleEnterMain = () => {
     display: grid;
     grid-template-columns: 2fr 1fr 1.5fr;
     gap: 10px;
-    padding: 12px 15px;
+    padding: 8px 12px;
     background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    border-radius: 8px 8px 0 0;
+    border-radius: 6px 6px 0 0;
     color: white;
-    font-size: 13px;
+    font-size: 12px;
     font-weight: 600;
-    position: sticky;
-    top: 0;
-    z-index: 10;
   }
 
   .list-item {
     display: grid;
     grid-template-columns: 2fr 1fr 1.5fr;
     gap: 10px;
-    padding: 15px;
+    padding: 10px 12px;
     background: #f8f9fa;
     border-bottom: 1px solid #e0e0e0;
     align-items: center;
@@ -326,37 +330,37 @@ const handleEnterMain = () => {
     }
 
     .item-name {
-      font-size: 14px;
+      font-size: 13px;
       color: #333;
       display: flex;
       align-items: center;
       gap: 8px;
 
       .item-icon {
-        font-size: 18px;
+        font-size: 16px;
       }
 
       .required-badge {
-        font-size: 10px;
-        padding: 2px 6px;
+        font-size: 9px;
+        padding: 2px 5px;
         background: #ff5722;
         color: white;
-        border-radius: 4px;
+        border-radius: 3px;
         font-weight: 500;
       }
 
       .optional-badge {
-        font-size: 10px;
-        padding: 2px 6px;
+        font-size: 9px;
+        padding: 2px 5px;
         background: #9e9e9e;
         color: white;
-        border-radius: 4px;
+        border-radius: 3px;
         font-weight: 500;
       }
     }
 
     .item-status {
-      font-size: 13px;
+      font-size: 12px;
 
       .status-pending {
         color: #ff9800;
@@ -364,7 +368,7 @@ const handleEnterMain = () => {
     }
 
     .item-version {
-      font-size: 13px;
+      font-size: 12px;
       color: #666;
       font-family: "JetBrains Mono", monospace;
 
@@ -387,34 +391,34 @@ const handleEnterMain = () => {
 }
 
 .summary-section {
-  padding: 20px;
+  padding: 12px 15px;
   background: #f5f5f5;
   border-radius: 8px;
   flex-shrink: 0;
 
   .summary-title {
-    font-size: 14px;
+    font-size: 13px;
     font-weight: 600;
     color: #333;
-    margin-bottom: 12px;
+    margin-bottom: 8px;
   }
 
   .summary-content {
     display: flex;
-    gap: 30px;
+    gap: 25px;
 
     .summary-item {
       display: flex;
       align-items: center;
-      gap: 8px;
+      gap: 6px;
 
       .summary-label {
-        font-size: 13px;
+        font-size: 12px;
         color: #666;
       }
 
       .summary-value {
-        font-size: 15px;
+        font-size: 14px;
         font-weight: 600;
         color: #333;
 
@@ -435,8 +439,8 @@ const handleEnterMain = () => {
 }
 
 .enter-main-btn {
-  padding: 14px 40px;
-  font-size: 16px;
+  padding: 12px 35px;
+  font-size: 15px;
   font-weight: 600;
   color: white;
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
@@ -444,7 +448,7 @@ const handleEnterMain = () => {
   border-radius: 8px;
   cursor: pointer;
   transition: all 0.3s ease;
-  margin-top: 20px;
+  margin-top: 12px;
   flex-shrink: 0;
 
   &:hover {
