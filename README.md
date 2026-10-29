@@ -22,16 +22,6 @@
 - 🔧 **文件操作** - 在应用内直接查看、编辑项目文件
 - 🖥️ **终端集成** - 一键打开项目目录的 Claude 终端
 
-## 📸 界面预览
-
-<div align="center">
-
-![Logo](.github/docs/logo.png)
-
-</div>
-
-> 截图准备中... 更多界面展示请参考 [GitHub Issues](https://github.com/yourusername/claude_desktop/issues)
-
 ## 🛠️ 技术栈
 
 ### 后端
@@ -78,7 +68,7 @@ claude "hello"
 ### 1. 克隆项目
 
 ```bash
-git clone https://github.com/yourusername/claude_desktop.git
+git clone https://github.com/silaswei/claude_desktop.git
 cd claude_desktop
 ```
 
@@ -265,8 +255,8 @@ MIT License - 详见 [LICENSE](.github/LICENSE) 文件
 ## 📮 联系方式
 
 - **作者**: silaswei
-- **邮箱**: silaswei.com
-- **问题反馈**: [GitHub Issues](https://github.com/yourusername/claude_desktop/issues)
+- **邮箱**: [silaswei@126.com](mailto:silaswei@126.com)
+- **问题反馈**: [GitHub Issues](https://github.com/silaswei/claude_desktop/issues)
 
 ---
 
